@@ -105,106 +105,96 @@ def generate_liquid_template(num_entries, company_name):
 """.format(company_name, num_entries)
 
 def process_liquid_template(template, data):
-    """Process data and create a template based on the JSON structure"""
+    """Process a Liquid template using Node.js"""
+    temp_template_path = None
+    temp_data_path = None
+    temp_output_path = None
+    
     try:
-        # Get the log data from the appropriate structure
-        if 'logs' in data and 'log' in data['logs']:
-            logs = data['logs']['log']
-        else:
-            # If the structure is not as expected, use the data as is
-            logs = data if isinstance(data, list) else [data]
-        
-        # Determine if we have single or multiple entries
-        if len(logs) == 1:
-            # Single entry template
-            log = logs[0]
-            output = f"# {log.get('title', 'Untitled')} - {log.get('logsource', {}).get('product', '')}\n\n"
+        # Create a temporary file for the template
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.liquid') as temp_template:
+            temp_template.write(template)
+            temp_template_path = temp_template.name
+
+        # Create a temporary file for the data
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as temp_data:
+            # Get the number of logs to simulate from the UI
+            # Default to 1 if not present in the request
+            log_count = 1
+            if 'log_count' in data:
+                log_count = int(data['log_count'])
             
-            output += "## Overview\n"
-            output += f"- **Event ID**: {log.get('id', '')}\n"
-            output += f"- **Target Object**: {log.get('description', '')}\n"
-            output += f"- **Subject User**: {log.get('author', '')}\n"
-            output += f"- **Subject SID**: {log.get('references', [])}\n\n"
+            # Create sample data with the appropriate number of log entries
+            sample_data = {
+                'logs': {
+                    'log': []
+                }
+            }
             
-            output += "## Details\n"
+            # Generate multiple sample log entries based on log_count
+            for i in range(log_count):
+                sample_log = {
+                    'EventType': f'Sample Event {i+1}',
+                    'TargetObject': f'Sample Target {i+1}',
+                    'SubjectUserName': f'Sample User {i+1}',
+                    'SubjectUserSid': f'S-1-5-21-123456789-123456789-123456789-{1000+i}',
+                    'TargetUserName': f'Sample Target User {i+1}',
+                    'TargetDomainName': 'sample.domain',
+                    'EventTime': f'2023-06-01T{12+i}:00:00Z',
+                    'client_ip': f'192.168.1.{100+i}',
+                    'ProcessId': f'{1234+i}',
+                    'ThreadId': f'{5678+i}',
+                    'Computer': f'SAMPLE-PC-{i+1}',
+                    'NewValue': f'Sample Value {i+1}',
+                    'MemberName': f'CN=User{i+1},DC=sample,DC=com'
+                }
+                sample_data['logs']['log'].append(sample_log)
             
-            # Expand all fields that exist in the log
-            for key, value in log.items():
-                # Skip fields already included in overview or that are complex objects
-                if key in ['id', 'description', 'author', 'references'] or isinstance(value, (dict, list)):
-                    continue
-                
-                output += f"- **{key}**: {value}\n"
+            json.dump(sample_data, temp_data)
+            temp_data_path = temp_data.name
+
+        # Create a temporary file for the output
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.md') as temp_output:
+            temp_output_path = temp_output.name
+
+        # Run the Node.js processor
+        process = subprocess.Popen(
+            ['node', 'liquid_processor.js', temp_template_path, temp_data_path, temp_output_path],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE
+        )
+        stdout, stderr = process.communicate()
+
+        if process.returncode != 0:
+            stderr_text = stderr.decode() if stderr else "Unknown error"
+            # Log the error for debugging
+            print(f"Node.js processor error: {stderr_text}")
             
-            # If there are detection rules, include them
-            if 'detection' in log:
-                output += "\n## Detection Rules\n"
-                if isinstance(log['detection'], dict):
-                    for rule_name, rule_value in log['detection'].items():
-                        if isinstance(rule_value, dict):
-                            output += f"- **{rule_name}**:\n"
-                            for field, criteria in rule_value.items():
-                                if isinstance(criteria, list):
-                                    criteria_str = ", ".join([f"`{c}`" for c in criteria])
-                                    output += f"  - {field}: {criteria_str}\n"
-                                else:
-                                    output += f"  - {field}: `{criteria}`\n"
-                        elif isinstance(rule_value, list):
-                            criteria_str = ", ".join([f"`{c}`" for c in rule_value])
-                            output += f"- **{rule_name}**: {criteria_str}\n"
-                        else:
-                            output += f"- **{rule_name}**: `{rule_value}`\n"
-        else:
-            # Multiple entries template
-            output = "# Multiple Events\n\n"
-            output += "## Overview\n"
-            output += f"- **Number of Events**: {len(logs)}\n\n"
-            
-            # Generate entry for each log
-            for i, log in enumerate(logs):
-                output += f"## Event {i+1}: {log.get('title', 'Untitled')}\n\n"
-                
-                # Basic information
-                output += f"- **Event ID**: {log.get('id', '')}\n"
-                output += f"- **Target Object**: {log.get('description', '')}\n"
-                output += f"- **Subject User**: {log.get('author', '')}\n"
-                
-                # Add additional details
-                output += "\n### Details\n"
-                
-                # Expand all fields that exist in the log
-                for key, value in log.items():
-                    # Skip fields already included or that are complex objects
-                    if key in ['id', 'description', 'author'] or isinstance(value, (dict, list)):
-                        continue
-                    
-                    output += f"- **{key}**: {value}\n"
-                
-                # If there are detection rules, include them
-                if 'detection' in log:
-                    output += "\n### Detection Rules\n"
-                    if isinstance(log['detection'], dict):
-                        for rule_name, rule_value in log['detection'].items():
-                            if isinstance(rule_value, dict):
-                                output += f"- **{rule_name}**:\n"
-                                for field, criteria in rule_value.items():
-                                    if isinstance(criteria, list):
-                                        criteria_str = ", ".join([f"`{c}`" for c in criteria])
-                                        output += f"  - {field}: {criteria_str}\n"
-                                    else:
-                                        output += f"  - {field}: `{criteria}`\n"
-                            elif isinstance(rule_value, list):
-                                criteria_str = ", ".join([f"`{c}`" for c in rule_value])
-                                output += f"- **{rule_name}**: {criteria_str}\n"
-                            else:
-                                output += f"- **{rule_name}**: `{rule_value}`\n"
-                                
-                output += "\n"
-        
-        return output
+            # Check if the error file has content
+            if os.path.exists(temp_output_path) and os.path.getsize(temp_output_path) > 0:
+                with open(temp_output_path, 'r') as f:
+                    error_message = f.read()
+                raise Exception(error_message)
+            else:
+                raise Exception(f"Node.js processor failed: {stderr_text}")
+
+        # Read the processed output
+        with open(temp_output_path, 'r') as f:
+            result = f.read()
+
+        return result
+
     except Exception as e:
-        print(f"Error processing data: {str(e)}")
-        return f"Error processing data: {str(e)}"
+        print(f"Template processing error: {str(e)}")
+        raise e
+    finally:
+        # Clean up temporary files if they exist
+        for path in [temp_template_path, temp_data_path, temp_output_path]:
+            try:
+                if path and os.path.exists(path):
+                    os.unlink(path)
+            except Exception as cleanup_error:
+                print(f"Error cleaning up temp file {path}: {str(cleanup_error)}")
 
 def sigma_to_liquid_template(sigma_data, company_name="Defense.com"):
     """
@@ -391,12 +381,22 @@ def run_template():
     try:
         data = request.json
         template = data.get('template', '')
+        test_data = data.get('data', {})
         
         if not template:
             return jsonify({'error': 'No template provided'}), 400
         
-        # Just display the template as-is
-        result = "Template Preview (not processed):\n\n" + template
+        # Get the log count from the form
+        # This should be passed from the frontend UI
+        log_count = request.args.get('log_count', 1)
+        
+        # Add log_count to test_data
+        if test_data is None:
+            test_data = {}
+        test_data['log_count'] = log_count
+        
+        # Process the template with sample data using Node.js
+        result = process_liquid_template(template, test_data)
         
         return jsonify({'status': 'success', 'result': result})
     except Exception as e:

@@ -10,26 +10,34 @@ const outputPath = process.argv[4];
 const template = fs.readFileSync(templatePath, 'utf8');
 let data = JSON.parse(fs.readFileSync(dataPath, 'utf8'));
 
-// Create an engine
-const engine = new Liquid();
+// Initialize Liquid engine with proper configuration
+const engine = new Liquid({
+    strictFilters: false,
+    strictVariables: false,
+    trimTagLeft: false,
+    trimTagRight: false,
+    trimOutputLeft: false,
+    trimOutputRight: false
+});
 
-// Very simple template that just outputs data as JSON
-const safeTemplate = `
-# Data Output
+// Define some custom filters if needed
+engine.registerFilter('strip', v => v ? v.toString().trim() : '');
 
-\`\`\`json
-{{ logs | json }}
-\`\`\`
-`;
-
-// Render the safe template
-engine.parseAndRender(safeTemplate, data)
-    .then(result => {
-        fs.writeFileSync(outputPath, result);
-        console.log('Template processed successfully');
-    })
-    .catch(err => {
-        console.error('Error:', err.message);
-        fs.writeFileSync(outputPath, 'Error: ' + err.message);
-        process.exit(1);
-    }); 
+// Process the template
+try {
+    engine.parseAndRender(template, data)
+        .then(result => {
+            // Write result to output file
+            fs.writeFileSync(outputPath, result);
+            console.log('Template processed successfully');
+        })
+        .catch(err => {
+            console.error('Error processing template:', err.message);
+            fs.writeFileSync(outputPath, 'Error processing template: ' + err.message);
+            process.exit(1);
+        });
+} catch (err) {
+    console.error('Fatal error in template processing:', err.message);
+    fs.writeFileSync(outputPath, 'Fatal error in template processing: ' + err.message);
+    process.exit(1);
+} 
