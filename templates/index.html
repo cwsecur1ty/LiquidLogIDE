@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liquid IDE</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/htmlmixed/htmlmixed.min.js"></script>
+    {% raw %}
+    <script>
+        // Define Liquid mode
+        CodeMirror.defineMode("liquid", function(config, parserConfig) {
+            return {
+                startState: function() {
+                    return {
+                        inLiquid: false,
+                        inTag: false,
+                        inVariable: false
+                    };
+                },
+                token: function(stream, state) {
+                    // Liquid tags
+                    if (stream.match("{%")) {
+                        state.inLiquid = true;
+                        state.inTag = true;
+                        return "liquid-tag";
+                    }
+                    if (stream.match("{{")) {
+                        state.inLiquid = true;
+                        state.inVariable = true;
+                        return "liquid-variable";
+                    }
+                    if (state.inLiquid) {
+                        if (stream.match("%}") && state.inTag) {
+                            state.inLiquid = false;
+                            state.inTag = false;
+                            return "liquid-tag";
+                        }
+                        if (stream.match("}}") && state.inVariable) {
+                            state.inLiquid = false;
+                            state.inVariable = false;
+                            return "liquid-variable";
+                        }
+                        if (state.inTag) {
+                            if (stream.match(/\b(if|else|elsif|endif|for|endfor|assign|capture|endcapture|case|when|endcase)\b/)) {
+                                return "liquid-keyword";
+                            }
+                            stream.next();
+                            return "liquid-tag";
+                        }
+                        if (state.inVariable) {
+                            stream.next();
+                            return "liquid-variable";
+                        }
+                    }
+                    stream.next();
+                    return null;
+                }
+            };
+        });
+
+        // Add Liquid styles
+        CodeMirror.defineMIME("text/liquid", "liquid");
+    </script>
+    {% endraw %}
+    <style>
+        .CodeMirror {
+            font-family: 'Fira Code', monospace;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .cm-liquid-tag {
+            color: #f92672;
+        }
+        .cm-liquid-variable {
+            color: #a6e22e;
+        }
+        .cm-liquid-keyword {
+            color: #66d9ef;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <aside class="sidebar">
+            <div class="company-name">
+                <h3>Name</h3>
+                <input type="text" id="company-name" placeholder="Enter company name" value="COMPANY">
+            </div>
+            <div class="insert-mode">
+                <h3>Insert Mode</h3>
+                <div class="toggle-container">
+                    <label class="toggle-label">
+                        <input type="radio" name="insert-mode" value="cursor" checked>
+                        <span>Cursor Position</span>
+                    </label>
+                    <label class="toggle-label">
+                        <input type="radio" name="insert-mode" value="auto">
+                        <span>Auto Insert</span>
+                    </label>
+                </div>
+            </div>
+            <div class="system-selector">
+                <h3>Systems</h3>
+                <div class="system-buttons">
+                    <button class="system-btn active" data-system="windows">Windows</button>
+                    <button class="system-btn" data-system="linux">Linux</button>
+                    <button class="system-btn" data-system="entra">Entra ID</button>
+                    <button class="system-btn" data-system="cloudflare">Cloudflare</button>
+                    <button class="system-btn" data-system="Bitdefender">Bitdefender</button>
+                </div>
+            </div>
+            <div class="outcome-templates">
+                <h3>Outcome Templates</h3>
+                <div id="windows-complex" class="system-complex active">
+                    <button class="complex-btn" data-template="windows-outcome">Outcome Processing (Windows)</button>
+                </div>
+                <div id="linux-complex" class="system-complex">
+                    <button class="complex-btn" data-template="linux-outcome">Outcome Processing (Linux)</button>
+                </div>
+                <div id="entra-complex" class="system-complex">
+                    <button class="complex-btn" data-template="entra-outcome">Outcome Processing (Entra ID)</button>
+                </div>
+                <div id="cloudflare-complex" class="system-complex">
+                    <button class="complex-btn" data-template="cloudflare-outcome">Outcome Processing (Cloudflare)</button>
+                </div>
+            </div>
+            <div class="log-variables">
+                <h3>Log Variables</h3>
+                <div id="windows-options" class="system-options active">
+                    <button class="template-btn" data-template="subject-user">Subject User</button>
+                    <button class="template-btn" data-template="subject-user-sid">Subject User SID</button>
+                    <button class="template-btn" data-template="target-domain-name">Target Domain Name</button>
+                    <button class="template-btn" data-template="target-user">Target User</button>
+                    <button class="template-btn" data-template="target-sid">Target SID</button>
+                    <button class="template-btn" data-template="windows-hostname">Hostname</button>
+                    <button class="template-btn" data-template="windows-message">Message</button>
+                    <button class="template-btn" data-template="event-type">Event Type</button>
+                    <button class="template-btn" data-template="event-code">Event Code</button>
+                    <button class="template-btn" data-template="target-object">Target Object</button>
+                </div>
+                <div id="linux-options" class="system-options">
+                    <button class="template-btn" data-template="user">User</button>
+                    <button class="template-btn" data-template="command">Command</button>
+                    <button class="template-btn" data-template="process">Process</button>
+                </div>
+                <div id="entra-options" class="system-options">
+                    <button class="template-btn" data-template="user-id">User ID</button>
+                    <button class="template-btn" data-template="result-status">Result Status</button>
+                    <button class="template-btn" data-template="user-key">User Key</button>
+                    <button class="template-btn" data-template="operation">Operation</button>
+                    <button class="template-btn" data-template="object-id">Object ID</button>
+                </div>
+                <div id="cloudflare-options" class="system-options">
+                    <button class="template-btn" data-template="resource-type">Resource Type</button>
+                    <button class="template-btn" data-template="resource-id">Resource ID</button>
+                    <button class="template-btn" data-template="actor-ip">Actor IP</button>
+                    <button class="template-btn" data-template="actor-type">Actor Type</button>
+                    <button class="template-btn" data-template="actor-id">Actor ID</button>
+                    <button class="template-btn" data-template="actor-email">Actor Email</button>
+                    <button class="template-btn" data-template="action-type">Action Type</button>
+                    <button class="template-btn" data-template="action-result">Action Result</button>
+                    <button class="template-btn" data-template="action-info">Action Info</button>
+                </div>
+            </div>
+        </aside>
+        <div class="main-content">
+            <header>
+                <h1>Liquid IDE</h1>
+                <div class="controls">
+                    <div class="file-upload">
+                        <input type="file" id="json-upload" accept=".json" style="display: none;">
+                        <button id="upload-btn">Upload Sigma JSON</button>
+                    </div>
+                    <div class="log-count">
+                        <label for="log-count">Logs:</label>
+                        <select id="log-count">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                        </select>
+                    </div>
+                    <button id="run-btn">Run</button>
+                    <button id="save-btn">Save</button>
+                    <div class="file-upload">
+                        <input type="file" id="template-upload" accept=".liquid" style="display: none;">
+                        <button id="load-btn">Load</button>
+                    </div>
+                </div>
+            </header>
+            <main>
+                <div class="editor-container">
+                    <div class="editor-header">
+                        <h2>Liquid Template</h2>
+                        <div class="editor-controls">
+                            <button id="undo-btn" title="Undo"><i class="fas fa-undo"></i></button>
+                            <button id="redo-btn" title="Redo"><i class="fas fa-redo"></i></button>
+                            <button id="format-btn" title="Format"><i class="fas fa-code"></i></button>
+                            <button id="clear-btn" title="Clear"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <div id="editor"></div>
+                </div>
+                <div class="output-container">
+                    <h3>Output - Work In Progress</h3>
+                    <div id="output"></div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    {% raw %}
+    <script>
+        // Initialize CodeMirror
+        const editor = CodeMirror(document.getElementById('editor'), {
+            mode: 'liquid',
+            theme: 'monokai',
+            lineNumbers: true,
+            autoCloseTags: true,
+            autoCloseBrackets: true,
+            matchBrackets: true,
+            indentUnit: 4,
+            lineWrapping: true,
+            extraKeys: {
+                "Ctrl-Space": "autocomplete"
+            }
+        });
+
+        // Editor control buttons
+        document.getElementById('undo-btn').addEventListener('click', () => {
+            editor.undo();
+        });
+
+        document.getElementById('redo-btn').addEventListener('click', () => {
+            editor.redo();
+        });
+
+        document.getElementById('clear-btn').addEventListener('click', () => {
+            if (confirm('Are you sure you want to clear the editor?')) {
+                editor.setValue('');
+            }
+        });
+
+        document.getElementById('format-btn').addEventListener('click', () => {
+            const content = editor.getValue();
+            // Basic formatting - you might want to enhance this
+            const formatted = content
+                .replace(/\{\{/g, '{{ ')
+                .replace(/\}\}/g, ' }}')
+                .replace(/\{%/g, '{% ')
+                .replace(/%\}/g, ' %}')
+                .replace(/\s+/g, ' ')
+                .trim();
+            editor.setValue(formatted);
+        });
+
+        // System selection handling
+        document.querySelectorAll('.system-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                // Remove active class from all system buttons and options
+                document.querySelectorAll('.system-btn').forEach(btn => btn.classList.remove('active'));
+                document.querySelectorAll('.system-options').forEach(opt => opt.classList.remove('active'));
+                document.querySelectorAll('.system-complex').forEach(opt => opt.classList.remove('active'));
+                
+                // Add active class to clicked button and corresponding options
+                this.classList.add('active');
+                document.getElementById(this.dataset.system + '-options').classList.add('active');
+                document.getElementById(this.dataset.system + '-complex').classList.add('active');
+            });
+        });
+
+        // Complex template button handling
+        document.querySelectorAll('.complex-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const template = this.dataset.template;
+                let insertText = '';
+                
+                switch(template) {
+                    case 'windows-outcome':
+                        insertText = `{% assign result = log_entries[0].event.outcome | strip -%}
+  {% if result == "failure" -%}
+    {% assign result = "failed" %}
+  {% elsif result == "success" -%}
+    {% assign result = "succeeded" %}
+  {% endif -%}`;
+                        break;
+                    case 'linux-outcome':
+                        insertText = `{% assign result = log_entries[0].event.outcome | strip -%}
+  {% if result == "failure" -%}
+    {% assign result = "failed" %}
+  {% elsif result == "success" -%}
+    {% assign result = "succeeded" %}
+  {% endif -%}`;
+                        break;
+                    case 'entra-outcome':
+                        insertText = `{% assign result = log_entries[0].event.outcome | strip -%}
+  {% if result == "failure" -%}
+    {% assign result = "failed" %}
+  {% elsif result == "success" -%}
+    {% assign result = "succeeded" %}
+  {% endif -%}`;
+                        break;
+                    case 'cloudflare-outcome':
+                        insertText = `{% assign result = log_entries[0].event.outcome | strip -%}
+  {% if result == "failure" -%}
+    {% assign result = "failed" %}
+  {% elsif result == "success" -%}
+    {% assign result = "succeeded" %}
+  {% endif -%}`;
+                        break;
+                }
+                
+                const insertMode = document.querySelector('input[name="insert-mode"]:checked').value;
+                
+                if (insertMode === 'cursor') {
+                    // Insert at cursor position
+                    const cursor = editor.getCursor();
+                    editor.replaceRange(insertText + '\n', cursor);
+                } else {
+                    // Auto insert into the appropriate section
+                    const content = editor.getValue();
+                    const singleEventSection = content.indexOf('{% if log_entries.size == 1 -%}');
+                    const multipleEventsSection = content.indexOf('{% else -%}');
+                    
+                    if (singleEventSection !== -1 && multipleEventsSection !== -1) {
+                        // Find the position after the activity description in single event section
+                        const singleEventDescEnd = content.indexOf('\n\n', singleEventSection) + 2;
+                        
+                        // Find the position in the multiple events section
+                        const forLoopStart = content.indexOf('{% for log_entry in log_entries %}', multipleEventsSection);
+                        const forLoopEnd = content.indexOf('{% endfor -%}', forLoopStart);
+                        
+                        // Insert in single event section with proper indentation
+                        editor.replaceRange('  ' + insertText + '\n', {line: editor.posFromIndex(singleEventDescEnd).line, ch: 0});
+                        
+                        // Insert in multiple events section inside the for loop
+                        if (forLoopStart !== -1 && forLoopEnd !== -1) {
+                            // Find the last line inside the for loop
+                            let lastLineInLoop = forLoopStart;
+                            let currentPos = forLoopStart;
+                            while (currentPos < forLoopEnd) {
+                                const nextNewline = content.indexOf('\n', currentPos);
+                                if (nextNewline === -1 || nextNewline > forLoopEnd) break;
+                                lastLineInLoop = nextNewline;
+                                currentPos = nextNewline + 1;
+                            }
+                            
+                            // Insert after the last line in the for loop with proper indentation
+                            const insertLine = editor.posFromIndex(lastLineInLoop).line;
+                            editor.replaceRange('  ' + insertText + '\n', {line: insertLine, ch: 0});
+                        }
+                    }
+                }
+            });
+        });
+
+        // Log Variables button handling
+        document.querySelectorAll('.template-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const template = this.dataset.template;
+                let insertText = '';
+                
+                switch(template) {
+                    case 'subject-user':
+                        insertText = '* Subject User: `{{ log_entry.SubjectUserName }}`';
+                        break;
+                    case 'subject-user-sid':
+                        insertText = '* Subject User SID: `{{ log_entry.SubjectUserSid }}`';
+                        break;
+                    case 'target-domain-name':
+                        insertText = '* Target Domain Name: `{{ log_entry.TargetDomainName }}`';
+                        break;
+                    case 'target-user':
+                        insertText = '* Target User: `{{ log_entry.TargetUserName }}`';
+                        break;
+                    case 'target-sid':
+                        insertText = '* Target SID: `{{ log_entry.TargetUserSid }}`';
+                        break;
+                    case 'windows-hostname':
+                        insertText = '* Hostname: `{{ log_entry.hostname }}`';
+                        break;
+                    case 'windows-message':
+                        insertText = '* Message: `{{ log_entry.message }}`';
+                        break;
+                    case 'event-type':
+                        insertText = '* Event Type: `{{ log_entry.EventType }}`';
+                        break;
+                    case 'event-code':
+                        insertText = '* Event Code: `{{ log_entry.event.code }}`';
+                        break;
+                    case 'target-object':
+                        insertText = '* Target Object: `{{ log_entry.TargetObject }}`';
+                        break;
+                    case 'user':
+                        insertText = '* User: `{{ log_entry.user }}`';
+                        break;
+                    case 'command':
+                        insertText = '* Command: `{{ log_entry.command }}`';
+                        break;
+                    case 'process':
+                        insertText = '* Process: `{{ log_entry.process }}`';
+                        break;
+                    case 'user-id':
+                        insertText = '* User ID: `{{ log_entry.UserId }}`';
+                        break;
+                    case 'client-ip':
+                        insertText = '* Client IP: `{{ log_entry.client_ip }}`';
+                        break;
+                    case 'host':
+                        insertText = '* Host: `{{ log_entry.host }}`';
+                        break;
+                    case 'user-agent':
+                        insertText = '* User Agent: `{{ log_entry.user_agent }}`';
+                        break;
+                    case 'result-status':
+                        insertText = '* Result Status: `{{ log_entry.ResultStatus }}`';
+                        break;
+                    case 'user-key':
+                        insertText = '* User Key: `{{ log_entry.UserKey }}`';
+                        break;
+                    case 'operation':
+                        insertText = '* Operation: `{{ log_entry.Operation }}`';
+                        break;
+                    case 'object-id':
+                        insertText = '* Object ID: `{{ log_entry.ObjectID }}`';
+                        break;
+                    case 'resource-type':
+                        insertText = '* Resource Type: `{{ log_entry.resource.type }}`';
+                        break;
+                    case 'resource-id':
+                        insertText = '* Resource ID: `{{ log_entry.resource.id }}`';
+                        break;
+                    case 'actor-ip':
+                        insertText = '* Actor IP: `{{ log_entry.actor.ip }}`';
+                        break;
+                    case 'actor-type':
+                        insertText = '* Actor Type: `{{ log_entry.actor.type }}`';
+                        break;
+                    case 'actor-id':
+                        insertText = '* Actor ID: `{{ log_entry.actor.id }}`';
+                        break;
+                    case 'actor-email':
+                        insertText = '* Actor Email: `{{ log_entry.actor.email }}`';
+                        break;
+                    case 'action-type':
+                        insertText = '* Action Type: `{{ log_entry.action.type }}`';
+                        break;
+                    case 'action-result':
+                        insertText = '* Action Result: `{{ log_entry.action.result }}`';
+                        break;
+                    case 'action-info':
+                        insertText = '* Action Info: `{{ log_entry.action.info }}`';
+                        break;
+                }
+                
+                const insertMode = document.querySelector('input[name="insert-mode"]:checked').value;
+                
+                if (insertMode === 'cursor') {
+                    // Insert at cursor position
+                    const cursor = editor.getCursor();
+                    editor.replaceRange(insertText + '\n', cursor);
+                } else {
+                    // Auto insert into the appropriate section
+                    const content = editor.getValue();
+                    const singleEventSection = content.indexOf('{% if log_entries.size == 1 -%}');
+                    const multipleEventsSection = content.indexOf('{% else -%}');
+                    
+                    if (singleEventSection !== -1 && multipleEventsSection !== -1) {
+                        // Find the position after the activity description in single event section
+                        const singleEventDescEnd = content.indexOf('\n\n', singleEventSection) + 2;
+                        
+                        // Find the position in the multiple events section
+                        const forLoopStart = content.indexOf('{% for log_entry in log_entries %}', multipleEventsSection);
+                        const forLoopEnd = content.indexOf('{% endfor -%}', forLoopStart);
+                        
+                        // Insert in single event section with proper indentation
+                        editor.replaceRange('  ' + insertText + '\n', {line: editor.posFromIndex(singleEventDescEnd).line, ch: 0});
+                        
+                        // Insert in multiple events section inside the for loop
+                        if (forLoopStart !== -1 && forLoopEnd !== -1) {
+                            // Find the last line inside the for loop
+                            let lastLineInLoop = forLoopStart;
+                            let currentPos = forLoopStart;
+                            while (currentPos < forLoopEnd) {
+                                const nextNewline = content.indexOf('\n', currentPos);
+                                if (nextNewline === -1 || nextNewline > forLoopEnd) break;
+                                lastLineInLoop = nextNewline;
+                                currentPos = nextNewline + 1;
+                            }
+                            
+                            // Insert after the last line in the for loop with proper indentation
+                            const insertLine = editor.posFromIndex(lastLineInLoop).line;
+                            editor.replaceRange('  ' + insertText + '\n', {line: insertLine, ch: 0});
+                        }
+                    }
+                }
+            });
+        });
+
+        // File upload handling
+        document.getElementById('upload-btn').addEventListener('click', function() {
+            document.getElementById('json-upload').click();
+        });
+
+        document.getElementById('json-upload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('company_name', document.getElementById('company-name').value);
+
+                fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        editor.setValue(data.template);
+                        document.querySelector('h1').textContent = data.title;
+                        // Set the company name input field value
+                        document.getElementById('company-name').value = data.company_name;
+                        // Clear the file input so the same file can be selected again
+                        e.target.value = '';
+                    } else {
+                        alert('Error: ' + data.error);
+                        // Clear the file input even on error
+                        e.target.value = '';
+                    }
+                })
+                .catch(error => {
+                    alert('Error uploading file: ' + error);
+                    // Clear the file input on error
+                    e.target.value = '';
+                });
+            }
+        });
+
+        // Company name change handler
+        document.getElementById('company-name').addEventListener('input', function() {
+            const content = editor.getValue();
+            const companyName = this.value;
+            
+            // Update company name in the template
+            const newContent = content.replace(/Defense\.com/g, companyName);
+            editor.setValue(newContent);
+        });
+
+        // Generate random placeholder values for log variables
+        function generateRandomValue(type) {
+            const randomValues = {
+                'SubjectUserName': ['john.doe', 'jane.smith', 'admin.user', 'system.admin', 'service.account', 'backup.operator', 'network.admin', 'security.analyst', 'helpdesk.tech', 'database.admin'],
+                'SubjectUserSid': ['S-1-5-21-1234567890-1234567890-1234567890-1234', 'S-1-5-21-0987654321-0987654321-0987654321-4321', 'S-1-5-21-1122334455-6677889900-1122334455-500', 'S-1-5-21-5544332211-0099887766-5544332211-1000'],
+                'TargetDomainName': ['example.com', 'corp.local', 'internal.net', 'enterprise.org', 'company.int', 'domain.local', 'business.net'],
+                'TargetUserName': ['jane.smith', 'john.doe', 'admin.user', 'system.admin', 'service.account', 'backup.operator', 'network.admin', 'security.analyst', 'helpdesk.tech', 'database.admin'],
+                'TargetUserSid': ['S-1-5-21-1234567890-1234567890-1234567890-1234', 'S-1-5-21-0987654321-0987654321-0987654321-4321', 'S-1-5-21-1122334455-6677889900-1122334455-500', 'S-1-5-21-5544332211-0099887766-5544332211-1000'],
+                'hostname': ['WIN-SERVER-01', 'DC-01', 'FILE-SERVER-01', 'APP-SERVER-01', 'SQL-SERVER-01', 'EXCHANGE-01', 'WEB-SERVER-01', 'BACKUP-SERVER-01'],
+                'message': [
+                    'User account was modified',
+                    'Security group membership was changed',
+                    'Privilege was assigned',
+                    'Logon attempt was made',
+                    'File was accessed',
+                    'Registry key was modified',
+                    'Service was started',
+                    'Process was created'
+                ],
+                'EventType': ['CreateKey', 'DeleteKey', 'SetValue', 'DeleteValue', 'RenameKey', 'RenameValue', 'CreateLink', 'DeleteLink'],
+                'event.code': ['4720', '4722', '4723', '4724', '4725', '4726', '4738', '4740', '4741', '4742', '4743'],
+                'TargetObject': [
+                    'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run',
+                    'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce',
+                    'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\System',
+                    'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer',
+                    'HKLM\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon',
+                    'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Shell Folders',
+                    'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders'
+                ],
+                'user': ['root', 'admin', 'ubuntu', 'centos', 'debian', 'oracle', 'postgres', 'mysql', 'apache', 'nginx'],
+                'command': [
+                    'sudo apt-get update',
+                    'yum install -y package',
+                    'systemctl restart service',
+                    'chmod 777 file',
+                    'chown user:group file',
+                    'rm -rf directory',
+                    'cp file destination',
+                    'mv file destination',
+                    'tar -xzf archive.tar.gz',
+                    'wget http://example.com/file'
+                ],
+                'process': [
+                    '/usr/bin/apt-get',
+                    '/usr/bin/yum',
+                    '/usr/bin/systemctl',
+                    '/usr/bin/chmod',
+                    '/usr/bin/chown',
+                    '/usr/bin/rm',
+                    '/usr/bin/cp',
+                    '/usr/bin/mv',
+                    '/usr/bin/tar',
+                    '/usr/bin/wget'
+                ],
+                'user_id': ['123456789', '987654321', '456789123', '789123456', '321654987', '654987321', '147258369', '258369147'],
+                'app_id': ['987654321', '123456789', '456789123', '789123456', '321654987', '654987321', '147258369', '258369147'],
+                'ip_address': ['192.168.1.100', '10.0.0.1', '172.16.0.1', '192.168.0.100', '10.1.1.1', '172.17.0.1', '192.168.2.100', '10.2.2.2'],
+                'client_ip': ['10.0.0.1', '192.168.1.100', '172.16.0.1', '192.168.0.100', '10.1.1.1', '172.17.0.1', '192.168.2.100', '10.2.2.2'],
+                'host': ['api.example.com', 'auth.example.com', 'app.example.com', 'api.corp.com', 'auth.corp.com', 'app.corp.com', 'api.internal.com', 'auth.internal.com'],
+                'user_agent': [
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+                    'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36',
+                    'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/537.36',
+                    'Mozilla/5.0 (iPad; CPU OS 14_0 like Mac OS X) AppleWebKit/537.36'
+                ],
+                // New Entra ID variables
+                'ResultStatus': ['Success', 'Failure'],
+                'UserKey': ['12345678-1234-1234-1234-123456789012', '87654321-4321-4321-4321-210987654321', '11223344-5566-7788-9900-112233445566', '99887766-5544-3322-1100-998877665544'],
+                'Operation': [
+                    'Add member to group',
+                    'Remove member from group',
+                    'Update user properties',
+                    'Reset user password',
+                    'Create user account',
+                    'Delete user account',
+                    'Update group properties',
+                    'Create group',
+                    'Delete group',
+                    'Update role assignment',
+                    'Remove role assignment',
+                    'Add role assignment'
+                ],
+                'ObjectID': ['a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'b2c3d4e5-f6a7-8901-bcde-fa2345678901', 'c3d4e5f6-a7b8-9012-cdef-ab3456789012', 'd4e5f6a7-b8c9-0123-defa-bc4567890123'],
+                'resource.type': ['firewall_rule', 'access_rule', 'waf_rule', 'rate_limit', 'zone', 'dns_record', 'ssl_certificate', 'worker_script'],
+                'resource.id': ['1234567890abcdef', '0987654321fedcba', 'abcdef1234567890', 'fedcba0987654321', 'a1b2c3d4e5f6g7h8', 'h8g7f6e5d4c3b2a1'],
+                'actor.ip': ['1.2.3.4', '5.6.7.8', '9.10.11.12', '13.14.15.16', '17.18.19.20', '21.22.23.24'],
+                'actor.type': ['user', 'api_key', 'service_token', 'system', 'automation', 'integration'],
+                'actor.id': ['user-123456', 'api-key-789012', 'service-token-345678', 'system-901234', 'automation-567890', 'integration-123456'],
+                'actor.email': ['admin@example.com', 'security@example.com', 'devops@example.com', 'support@example.com', 'automation@example.com', 'system@example.com'],
+                'action.type': ['create', 'update', 'delete', 'enable', 'disable', 'modify', 'revoke', 'restore'],
+                'action.result': ['success', 'failure', 'partial', 'skipped', 'pending', 'cancelled'],
+                'action.info': [
+                    'Rule created successfully',
+                    'Rule updated with new conditions',
+                    'Rule deleted from firewall',
+                    'Access rule enabled for IP range',
+                    'WAF rule disabled temporarily',
+                    'Rate limit modified for zone',
+                    'DNS record updated',
+                    'SSL certificate renewed',
+                    'Worker script deployed'
+                ]
+            };
+
+            // Get the array of possible values for this type
+            const values = randomValues[type];
+            if (values && Array.isArray(values)) {
+                // Return a random value from the array
+                return values[Math.floor(Math.random() * values.length)];
+            }
+            return 'Unknown';
+        }
+
+        // Process Liquid template to markdown
+        function processLiquidToMarkdown(template) {
+            // Replace company name
+            const companyName = document.getElementById('company-name').value;
+            let markdown = template.replace(/{{ company_name }}/g, companyName);
+
+            // Get the number of logs to simulate
+            const logCount = parseInt(document.getElementById('log-count').value);
+
+            // Process single log entry section
+            if (logCount === 1) {
+                // Extract single log section
+                const singleLogMatch = template.match(/{% if log_entries\.size == 1 -%}([\s\S]*?){% else -%}/);
+                if (singleLogMatch) {
+                    let singleLogContent = singleLogMatch[1];
+                    
+                    // Replace log variables with random values for single log
+                    const logVariables = [
+                        'SubjectUserName', 'SubjectUserSid', 'TargetDomainName', 'TargetUserName',
+                        'TargetUserSid', 'hostname', 'message', 'EventType', 'event.code',
+                        'TargetObject', 'user', 'command', 'process', 'user_id', 'app_id',
+                        'ip_address', 'client_ip', 'host', 'user_agent'
+                    ];
+
+                    logVariables.forEach(variable => {
+                        // Try both log_entries[0] and log_entry formats
+                        const regex1 = new RegExp(`{{ log_entries\\[0\\]\\.${variable} }}`, 'g');
+                        const regex2 = new RegExp(`{{ log_entry\\.${variable} }}`, 'g');
+                        const randomValue = generateRandomValue(variable);
+                        singleLogContent = singleLogContent.replace(regex1, randomValue);
+                        singleLogContent = singleLogContent.replace(regex2, randomValue);
+                    });
+
+                    // Process outcome for single log
+                    singleLogContent = singleLogContent.replace(/{% assign result = log_entries\[0\]\.event\.outcome \| strip -%}/g, '');
+                    singleLogContent = singleLogContent.replace(/{% if result == "failure" -%}/g, '');
+                    singleLogContent = singleLogContent.replace(/{% assign result = "failed" %}/g, '');
+                    singleLogContent = singleLogContent.replace(/{% elsif result == "success" -%}/g, '');
+                    singleLogContent = singleLogContent.replace(/{% assign result = "succeeded" %}/g, '');
+                    singleLogContent = singleLogContent.replace(/{% endif -%}/g, '');
+
+                    // Remove whitespace after dashes
+                    singleLogContent = singleLogContent.replace(/-\s+/g, '-');
+
+                    // Remove any remaining Liquid tags
+                    singleLogContent = singleLogContent.replace(/{%[^%]*%}/g, '');
+                    singleLogContent = singleLogContent.replace(/{{[^}]*}}/g, '');
+
+                    // Clean up any remaining whitespace issues
+                    singleLogContent = singleLogContent.replace(/\n\s*\n\s*\n/g, '\n\n');
+                    singleLogContent = singleLogContent.trim();
+
+                    markdown = singleLogContent;
+                }
+            } else {
+                // Process multiple log entries
+                const multipleLogsMatch = template.match(/{% else -%}([\s\S]*?){% endif -%}/);
+                if (multipleLogsMatch) {
+                    const multipleLogsTemplate = multipleLogsMatch[1];
+                    let multipleLogsContent = '';
+                    
+                    for (let i = 0; i < logCount; i++) {
+                        let logContent = multipleLogsTemplate;
+                        
+                        // Replace log variables with random values for each log entry
+                        const logVariables = [
+                            'SubjectUserName', 'SubjectUserSid', 'TargetDomainName', 'TargetUserName',
+                            'TargetUserSid', 'hostname', 'message', 'EventType', 'event.code',
+                            'TargetObject', 'user', 'command', 'process', 'user_id', 'app_id',
+                            'ip_address', 'client_ip', 'host', 'user_agent'
+                        ];
+
+                        logVariables.forEach(variable => {
+                            // Try both log_entries[0] and log_entry formats
+                            const regex1 = new RegExp(`{{ log_entries\\[0\\]\\.${variable} }}`, 'g');
+                            const regex2 = new RegExp(`{{ log_entry\\.${variable} }}`, 'g');
+                            const randomValue = generateRandomValue(variable);
+                            logContent = logContent.replace(regex1, randomValue);
+                            logContent = logContent.replace(regex2, randomValue);
+                        });
+
+                        // Process outcome for each log
+                        logContent = logContent.replace(/{% assign result = log_entry\.event\.outcome \| strip -%}/g, '');
+                        logContent = logContent.replace(/{% if result == "failure" -%}/g, '');
+                        logContent = logContent.replace(/{% assign result = "failed" %}/g, '');
+                        logContent = logContent.replace(/{% elsif result == "success" -%}/g, '');
+                        logContent = logContent.replace(/{% assign result = "succeeded" %}/g, '');
+                        logContent = logContent.replace(/{% endif -%}/g, '');
+
+                        // Remove whitespace after dashes
+                        logContent = logContent.replace(/-\s+/g, '-');
+
+                        multipleLogsContent += logContent;
+                    }
+
+                    // Remove any remaining Liquid tags
+                    multipleLogsContent = multipleLogsContent.replace(/{%[^%]*%}/g, '');
+                    multipleLogsContent = multipleLogsContent.replace(/{{[^}]*}}/g, '');
+
+                    // Clean up any remaining whitespace issues
+                    multipleLogsContent = multipleLogsContent.replace(/\n\s*\n\s*\n/g, '\n\n');
+                    multipleLogsContent = multipleLogsContent.trim();
+
+                    markdown = multipleLogsContent;
+                }
+            }
+
+            return markdown;
+        }
+
+        // Run button handling
+        document.getElementById('run-btn').addEventListener('click', function() {
+            const template = editor.getValue();
+            const markdown = processLiquidToMarkdown(template);
+            document.getElementById('output').innerHTML = markdown;
+        });
+
+        // Function to show notification
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'notification';
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            // Remove the notification after animation completes
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // Save button handling
+        document.getElementById('save-btn').addEventListener('click', function() {
+            const content = editor.getValue();
+            const currentTitle = document.querySelector('h1').textContent;
+            
+            // If there's no title, prompt for a name
+            if (currentTitle === 'Liquid IDE') {
+                const templateName = prompt('Enter a name for your template:');
+                if (!templateName) return;
+                
+                fetch('/api/save_template', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content: content,
+                        name: templateName
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showNotification('Saved template to Liquid Templates');
+                        document.querySelector('h1').textContent = templateName;
+                    } else {
+                        showNotification('Error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    showNotification('Error saving template: ' + error);
+                });
+            } else {
+                // Use current title as template name
+                fetch('/api/save_template', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        content: content,
+                        name: currentTitle
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showNotification('Saved template to Liquid Templates');
+                    } else {
+                        showNotification('Error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    showNotification('Error saving template: ' + error);
+                });
+            }
+        });
+
+        // Load button handling
+        document.getElementById('load-btn').addEventListener('click', function() {
+            document.getElementById('template-upload').click();
+        });
+
+        document.getElementById('template-upload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const content = e.target.result;
+                    editor.setValue(content);
+                    document.querySelector('h1').textContent = file.name.replace('.liquid', '');
+                    showNotification(`Successfully loaded template: ${file.name}`);
+                };
+                reader.readAsText(file);
+                // Clear the file input so the same file can be selected again
+                e.target.value = '';
+            }
+        });
+    </script>
+    {% endraw %}
+</body>
+</html> 
