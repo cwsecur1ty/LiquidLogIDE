@@ -1,14 +1,35 @@
 :root {
+    /* Base colors */
     --bg-color: #1a1a1a;
     --text-color: #ffffff;
-    --accent-color: #6c63ff;
     --secondary-bg: #2d2d2d;
     --border-color: #404040;
-    --sidebar-width: 250px;
+    --sidebar-width: 275px;
     --editor-bg: #333333;
     --editor-header-bg: #444444;
     --hover-color: #555555;
     --active-color: #666666;
+
+    /* Theme colors */
+    --purple: #6c63ff;
+    --red: #ff4545;
+    --green: #50c878;
+
+    /* Default accent color - purple */
+    --accent-color: var(--purple);
+}
+
+/* Theme color classes */
+.theme-purple {
+    --accent-color: var(--purple);
+}
+
+.theme-red {
+    --accent-color: var(--red);
+}
+
+.theme-green {
+    --accent-color: var(--green);
 }
 
 * {
@@ -183,19 +204,31 @@ button {
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    transition: background-color 0.3s;
+    transition: background-color 0.2s, opacity 0.2s;
+    font-size: 0.95rem;
+    min-height: 40px;
 }
 
 button:hover {
-    background-color: #5a52d4;
+    background-color: var(--accent-color);
+    opacity: 0.85;
 }
 
 #upload-btn {
-    background-color: #4CAF50;
+    background-color: var(--accent-color);
+    min-width: 160px;
+    text-align: center;
 }
 
 #upload-btn:hover {
-    background-color: #45a049;
+    background-color: var(--accent-color);
+    opacity: 0.85;
+}
+
+#run-btn,
+#save-btn,
+#load-btn {
+    background-color: var(--accent-color);
 }
 
 main {
@@ -458,25 +491,48 @@ main {
 .editor-controls {
     display: flex;
     gap: 8px;
+    align-items: center;
 }
 
 .editor-controls button {
-    background: var(--editor-header-bg);
-    border: 1px solid var(--border-color);
-    color: var(--text-color);
-    cursor: pointer;
-    padding: 6px 10px;
+    width: 36px;
+    height: 36px;
     border-radius: 4px;
-    transition: all 0.2s;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 32px;
+    transition: all 0.3s;
+    padding: 0;
 }
 
 .editor-controls button:hover {
-    background-color: var(--hover-color);
+    background-color: var(--accent-color);
     border-color: var(--accent-color);
+}
+
+/* Special styling for the Run button to make it stand out */
+.editor-controls #run-btn {
+    width: auto;
+    padding: 0 12px;
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+.editor-controls #run-btn i {
+    margin-right: 6px;
+}
+
+/* Adjust the loading state for the Run button in the editor controls */
+.editor-controls #run-btn.loading {
+    padding-left: 8px;
+}
+
+.editor-controls #run-btn.loading.with-status>span:not(.status-text) {
+    visibility: hidden;
 }
 
 .editor-controls button:active {
@@ -500,4 +556,199 @@ main {
     outline: none;
     white-space: pre;
     overflow-x: auto;
+}
+
+/* Collapsible section styles */
+.collapsible-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    margin-bottom: 10px;
+}
+
+.collapsible-header h3 {
+    color: var(--accent-color);
+    font-size: 1.1rem;
+    margin: 0;
+}
+
+.toggle-btn {
+    background: none;
+    border: none;
+    color: var(--text-color);
+    cursor: pointer;
+    padding: 5px;
+    transition: all 0.3s;
+}
+
+.toggle-btn:hover {
+    color: var(--accent-color);
+}
+
+.toggle-btn i {
+    font-size: 0.8rem;
+}
+
+.collapsible-content {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.2s ease-out;
+    padding-left: 5px;
+    padding-right: 5px;
+    opacity: 0;
+    transition: max-height 0.2s ease-out, opacity 0.2s ease-out;
+}
+
+.collapsible-content.open {
+    max-height: 200px;
+    opacity: 1;
+    transition: max-height 0.3s ease-in, opacity 0.3s ease-in;
+    margin-bottom: 15px;
+}
+
+.color-theme {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.theme-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.theme-btn {
+    flex: 1;
+    padding: 8px 12px;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+.theme-btn:hover {
+    background-color: var(--accent-color);
+    opacity: 0.85;
+    border-color: var(--accent-color);
+}
+
+.theme-btn[data-theme="purple"] {
+    border-left: 4px solid var(--purple);
+}
+
+.theme-btn[data-theme="red"] {
+    border-left: 4px solid var(--red);
+}
+
+.theme-btn[data-theme="green"] {
+    border-left: 4px solid var(--green);
+}
+
+.theme-btn.active {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+    font-weight: bold;
+}
+
+/* Spinner animation for loading states */
+.spinner {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 0.6s linear infinite;
+    margin-right: 6px;
+    vertical-align: middle;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Button with spinner - adjust the padding when spinner is visible */
+button.loading {
+    padding-left: 12px;
+    position: relative;
+}
+
+/* Hide the button text when showing spinner with status text */
+button.loading.with-status>span:not(.status-text) {
+    visibility: hidden;
+}
+
+/* Status text appears when action is complete */
+.status-text {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+}
+
+/* Update the log-count styles for its new position */
+.editor-controls .log-count {
+    display: flex;
+    align-items: center;
+    margin-left: 12px;
+    background-color: var(--bg-color);
+    border-radius: 4px;
+    padding: 0 8px;
+    height: 36px;
+    border: 1px solid var(--border-color);
+    opacity: 1;
+    visibility: visible;
+}
+
+.editor-controls .log-count label {
+    margin-right: 6px;
+    font-size: 0.9rem;
+    color: var(--text-color);
+    white-space: nowrap;
+}
+
+.editor-controls .log-count select {
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border: none;
+    outline: none;
+    cursor: pointer;
+    padding: 0;
+    font-size: 0.9rem;
+    min-width: 40px;
+    height: 28px;
+}
+
+.editor-controls .log-count:hover {
+    border-color: var(--accent-color);
+}
+
+/* Improve spacing in the editor controls */
+.editor-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* Special styling for the Run button to make it stand out */
+.editor-controls #run-btn {
+    width: auto;
+    padding: 0 12px;
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+/* Make the button text more visible */
+.controls button span {
+    font-weight: 500;
+    letter-spacing: 0.02em;
 }

@@ -36,71 +36,71 @@ def generate_liquid_template(num_entries, company_name):
 # {{ log_entries[0].TargetUserName }} - {{ log_entries[0].TargetDomainName }}
 
 ## Overview
-- **Event ID**: {{ log_entries[0].EventType }}
-- **Target Object**: {{ log_entries[0].TargetObject }}
-- **Subject User**: {{ log_entries[0].SubjectUserName }}
-- **Subject SID**: {{ log_entries[0].SubjectUserSid }}
+- Event ID: {{ log_entries[0].EventType }}
+- Target Object: {{ log_entries[0].TargetObject }}
+- Subject User: {{ log_entries[0].SubjectUserName }}
+- Subject SID: {{ log_entries[0].SubjectUserSid }}
 
 ## Details
-- **Company**: {0}
-- **Event Time**: {{ log_entries[0].EventTime }}
-- **Client IP**: {{ log_entries[0].client_ip }}
-- **Target User**: {{ log_entries[0].TargetUserName }}
-- **Target Domain**: {{ log_entries[0].TargetDomainName }}
-- **Subject User**: {{ log_entries[0].SubjectUserName }}
-- **Subject SID**: {{ log_entries[0].SubjectUserSid }}
-- **Event Type**: {{ log_entries[0].EventType }}
-- **Target Object**: {{ log_entries[0].TargetObject }}
+- Company: {0}
+- Event Time: {{ log_entries[0].EventTime }}
+- Client IP: {{ log_entries[0].client_ip }}
+- Target User: {{ log_entries[0].TargetUserName }}
+- Target Domain: {{ log_entries[0].TargetDomainName }}
+- Subject User: {{ log_entries[0].SubjectUserName }}
+- Subject SID: {{ log_entries[0].SubjectUserSid }}
+- Event Type: {{ log_entries[0].EventType }}
+- Target Object: {{ log_entries[0].TargetObject }}
 
 ## Outcome Processing
 {% if log_entries[0].EventType == "4657" %}
-- **Action**: Registry key value modified
-- **Key**: {{ log_entries[0].TargetObject }}
-- **Value**: {{ log_entries[0].NewValue }}
+- Action: Registry key value modified
+- Key: {{ log_entries[0].TargetObject }}
+- Value: {{ log_entries[0].NewValue }}
 {% endif %}
 
 ## Additional Context
-- **Process ID**: {{ log_entries[0].ProcessId }}
-- **Thread ID**: {{ log_entries[0].ThreadId }}
-- **Computer**: {{ log_entries[0].Computer }}
+- Process ID: {{ log_entries[0].ProcessId }}
+- Thread ID: {{ log_entries[0].ThreadId }}
+- Computer: {{ log_entries[0].Computer }}
 """.format(company_name)
     else:
         return """{% assign log_entries = logs.log %}
 # Multiple Events
 
 ## Overview
-- **Company**: {0}
-- **Number of Events**: {1}
+- Company: {0}
+- Number of Events: {1}
 
 ## Events
 {% for log_entry in log_entries %}
 ### Event {{ forloop.index }}
-- **Event ID**: {{ log_entry.EventType }}
-- **Target Object**: {{ log_entry.TargetObject }}
-- **Subject User**: {{ log_entry.SubjectUserName }}
-- **Subject SID**: {{ log_entry.SubjectUserSid }}
+- Event ID: {{ log_entry.EventType }}
+- Target Object: {{ log_entry.TargetObject }}
+- Subject User: {{ log_entry.SubjectUserName }}
+- Subject SID: {{ log_entry.SubjectUserSid }}
 
 #### Details
-- **Event Time**: {{ log_entry.EventTime }}
-- **Client IP**: {{ log_entry.client_ip }}
-- **Target User**: {{ log_entry.TargetUserName }}
-- **Target Domain**: {{ log_entry.TargetDomainName }}
-- **Subject User**: {{ log_entry.SubjectUserName }}
-- **Subject SID**: {{ log_entry.SubjectUserSid }}
-- **Event Type**: {{ log_entry.EventType }}
-- **Target Object**: {{ log_entry.TargetObject }}
+- Event Time: {{ log_entry.EventTime }}
+- Client IP: {{ log_entry.client_ip }}
+- Target User: {{ log_entry.TargetUserName }}
+- Target Domain: {{ log_entry.TargetDomainName }}
+- Subject User: {{ log_entry.SubjectUserName }}
+- Subject SID: {{ log_entry.SubjectUserSid }}
+- Event Type: {{ log_entry.EventType }}
+- Target Object: {{ log_entry.TargetObject }}
 
 #### Outcome Processing
 {% if log_entry.EventType == "4657" %}
-- **Action**: Registry key value modified
-- **Key**: {{ log_entry.TargetObject }}
-- **Value**: {{ log_entry.NewValue }}
+- Action: Registry key value modified
+- Key: {{ log_entry.TargetObject }}
+- Value: {{ log_entry.NewValue }}
 {% endif %}
 
 #### Additional Context
-- **Process ID**: {{ log_entry.ProcessId }}
-- **Thread ID**: {{ log_entry.ThreadId }}
-- **Computer**: {{ log_entry.Computer }}
+- Process ID: {{ log_entry.ProcessId }}
+- Thread ID: {{ log_entry.ThreadId }}
+- Computer: {{ log_entry.Computer }}
 {% endfor %}
 """.format(company_name, num_entries)
 
@@ -230,18 +230,18 @@ def sigma_to_liquid_template(sigma_data, company_name="Defense.com"):
     if not detection_fields:
         detection_fields = ["EventType", "TargetObject"]
     
-    # Add the field outputs for single event
+    # Add the field outputs for single event - without bold formatting
     for field in detection_fields:
-        template += f'  * **{field}:** `{{{{ log_entries[0].{field} }}}}`\n'
+        template += f'  * {field}: `{{{{ log_entries[0].{field} }}}}`\n'
     
     # Add the multiple events section
     template += '\n{% else -%}\n'
     template += f'  {company_name} has detected {title}. As part of the investigation, {company_name} observed multiple events:\n\n'
     template += '  {% for log_entry in log_entries %}\n'
     
-    # Add the field outputs for multiple events
+    # Add the field outputs for multiple events - without bold formatting
     for field in detection_fields:
-        template += f'  * **{field}:** `{{{{ log_entry.{field} }}}}`\n'
+        template += f'  * {field}: `{{{{ log_entry.{field} }}}}`\n'
     
     # Close the template
     template += '  {% endfor -%}\n'
