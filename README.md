@@ -27,7 +27,7 @@ An IDE for creating and managing Liquid templates with Sigma rule integration. L
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/LiquidLogIDE.git
+   git clone https://github.com/cwsecur1ty/LiquidLogIDE.git
    cd LiquidLogIDE
    ```
 
