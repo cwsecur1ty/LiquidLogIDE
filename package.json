@@ -1,0 +1,9 @@
+{
+    "name": "liquid-processor",
+    "version": "1.0.0",
+    "description": "Liquid template processor",
+    "main": "liquid_processor.js",
+    "dependencies": {
+        "liquidjs": "^10.0.0"
+    }
+}

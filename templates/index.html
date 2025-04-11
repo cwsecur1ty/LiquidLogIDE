@@ -174,7 +174,7 @@
         </aside>
         <div class="main-content">
             <header>
-                <h1>Liquid IDE</h1>
+                <h1>LiquidLogIDE</h1>
                 <div class="controls">
                     <div class="file-upload">
                         <input type="file" id="json-upload" accept=".json" style="display: none;">
@@ -784,8 +784,42 @@
         // Run button handling
         document.getElementById('run-btn').addEventListener('click', function() {
             const template = editor.getValue();
-            const markdown = processLiquidToMarkdown(template);
-            document.getElementById('output').innerHTML = markdown;
+            const testData = {
+                logs: {
+                    log: [
+                        {
+                            TargetUserName: 'testuser',
+                            TargetDomainName: 'testdomain',
+                            SubjectUserSid: 'S-1-5-21-1234567890-1234567890-1234567890-1234',
+                            SubjectUserName: 'testadmin',
+                            EventType: '4657',
+                            TargetObject: 'HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run'
+                        }
+                    ]
+                }
+            };
+            
+            fetch('/api/run', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    template: template,
+                    data: testData
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    document.getElementById('output').textContent = data.result;
+                } else {
+                    showNotification('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                showNotification('Error running template: ' + error);
+            });
         });
 
         // Function to show notification
