@@ -44,7 +44,7 @@ An IDE for creating and managing Liquid templates with Sigma rule integration. L
 
 4. Install Node.js dependencies:
    ```bash
-   npm install liquidjs
+   npm install
    ```
 
 5. Run the application:
