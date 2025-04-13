@@ -8,11 +8,17 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/monokai.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/hint/show-hint.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/search/matchesonscrollbar.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/css/css.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/htmlmixed/htmlmixed.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/hint/show-hint.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/search/searchcursor.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/search/match-highlighter.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/selection/active-line.min.js"></script>
     {% raw %}
     <script>
         // Define Liquid mode
@@ -86,6 +92,17 @@
             color: #66d9ef;
             font-weight: bold;
         }
+        
+        /* Add this CSS for the matching highlights */
+        .cm-match-highlight {
+            background-color: rgba(255, 204, 0, 0.3); /* Subtle yellow highlight */
+            border-radius: 2px;
+        }
+        
+        /* Style for active line highlighting */
+        .CodeMirror-activeline-background {
+            background-color: rgba(255, 255, 255, 0.07);
+        }
     </style>
 </head>
 <body>
@@ -129,6 +146,13 @@
                     <button class="system-btn" data-system="entra">Entra ID</button>
                     <button class="system-btn" data-system="cloudflare">Cloudflare</button>
                     <button class="system-btn" data-system="Bitdefender">Bitdefender</button>
+                    
+                    <div class="system-upload">
+                        <input type="file" id="log-json-upload" accept=".json" style="display: none;">
+                        <button class="system-btn log-upload-btn">
+                            <i class="fas fa-upload"></i> Custom Log Format
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="outcome-templates">
@@ -183,6 +207,10 @@
                     <button class="template-btn" data-template="action-result">Action Result</button>
                     <button class="template-btn" data-template="action-info">Action Info</button>
                 </div>
+            </div>
+            <div id="custom-log-options" class="system-options">
+                <!-- Dynamic variables will be added here -->
+                <div class="custom-log-empty">Upload a JSON log file to extract variables</div>
             </div>
         </aside>
         <div class="main-content">
@@ -244,8 +272,25 @@
             matchBrackets: true,
             indentUnit: 4,
             lineWrapping: true,
+            styleActiveLine: true,
+            highlightSelectionMatches: {
+                minChars: 2,
+                style: 'match-highlight',
+                showToken: false,
+                annotateScrollbar: false
+            },
             extraKeys: {
                 "Ctrl-Space": "autocomplete"
+            }
+        });
+
+        // Ensure the CodeMirror instance has the necessary options
+        editor.setOption("extraKeys", {
+            "Ctrl-Space": "autocomplete",
+            "Tab": function(cm) {
+                // Convert tabs to spaces for consistent indentation
+                const spaces = Array(cm.getOption("indentUnit") + 1).join(" ");
+                cm.replaceSelection(spaces);
             }
         });
 
@@ -891,6 +936,454 @@
                 console.log('Log count is visible:', getComputedStyle(logCountSelect).display);
             }
         });
+
+        // Define Liquid statement templates with proper syntax
+        const liquidTemplates = {
+            // If statement templates
+            "if": "{% if condition %}\n  \n{% endif %}",
+            "if/else": "{% if condition %}\n  \n{% else %}\n  \n{% endif %}",
+            "if/elsif/else": "{% if condition %}\n  \n{% elsif condition %}\n  \n{% else %}\n  \n{% endif %}",
+            
+            // For loop templates
+            "for": "{% for item in array %}\n  \n{% endfor %}",
+            "for/else": "{% for item in array %}\n  \n{% else %}\n  \n{% endfor %}",
+            "for-range": "{% for i in (1..5) %}\n  \n{% endfor %}",
+            
+            // Common variable templates
+            "assign": "{% assign variable_name = value %}",
+            "capture": "{% capture variable_name %}\n  \n{% endcapture %}",
+            
+            // Log-specific templates
+            "log-entry": "{{ log_entry.field_name }}",
+            "log-entries": "{{ log_entries[0].field_name }}",
+            "size-check": "{% if log_entries.size == 1 -%}"
+        };
+
+        // Register our custom hint function for Liquid
+        CodeMirror.registerHelper("hint", "liquid", function(editor) {
+            const cursor = editor.getCursor();
+            const line = editor.getLine(cursor.line);
+            const lineText = line.substring(0, cursor.ch);
+            
+            let start = cursor.ch;
+            let end = cursor.ch;
+            
+            // Find the start of the current word/partial command
+            while (start > 0 && /[\w-]/.test(line.charAt(start - 1))) {
+                start--;
+            }
+            
+            const currentWord = line.substring(start, cursor.ch).toLowerCase();
+            
+            // Build a list of suggestions based on what the user has typed
+            const suggestions = [];
+            
+            // Add templates for if/for commands
+            if (/^\s*{%\s*$/.test(lineText) || lineText.endsWith('{%')) {
+                // User has typed {% or is about to start a Liquid tag
+                suggestions.push({
+                    text: " if ", 
+                    displayText: "if statement", 
+                    render: function(element, data, current) {
+                        element.innerHTML = '<span data-type="if">if statement</span>';
+                    },
+                    hint: function(cm, data, completion) {
+                        cm.replaceRange(" if ", data.from, data.to);
+                    }
+                });
+                
+                suggestions.push({
+                    text: " for ", 
+                    displayText: "for loop", 
+                    render: function(element, data, current) {
+                        element.innerHTML = '<span data-type="for">for loop</span>';
+                    },
+                    hint: function(cm, data, completion) {
+                        cm.replaceRange(" for ", data.from, data.to);
+                    }
+                });
+                
+                suggestions.push({
+                    text: " assign ", 
+                    displayText: "assign variable", 
+                    render: function(element, data, current) {
+                        element.innerHTML = '<span data-type="assign">assign variable</span>';
+                    },
+                    hint: function(cm, data, completion) {
+                        cm.replaceRange(" assign ", data.from, data.to);
+                    }
+                });
+            } else if (/^\s*{%\s*if\s*$/.test(lineText) || lineText.includes("{% if")) {
+                // User is working on an if statement
+                const template = liquidTemplates["if"];
+                suggestions.push({
+                    text: template,
+                    displayText: "if condition",
+                    render: function(element, data, current) {
+                        element.innerHTML = '<span data-type="if">if condition</span>';
+                    },
+                    hint: function(cm, data, completion) {
+                        const line = cm.getLine(cursor.line);
+                        const replace = line.includes("{% if") ? false : true;
+                        
+                        if (replace) {
+                            const from = {line: cursor.line, ch: 0};
+                            const to = {line: cursor.line, ch: line.length};
+                            cm.replaceRange(template, from, to);
+                        } else {
+                            // Just insert the end part
+                            cm.replaceRange("\n  \n{% endif %}", cursor);
+                        }
+                        
+                        // Position cursor after condition
+                        const conditionPos = template.indexOf("condition") + line.indexOf("{% if");
+                        cm.setCursor({line: cursor.line, ch: conditionPos});
+                    }
+                });
+                
+                // Add if/else suggestion
+                suggestions.push({
+                    text: liquidTemplates["if/else"],
+                    displayText: "if/else statement",
+                    render: function(element, data, current) {
+                        element.innerHTML = '<span data-type="if">if/else statement</span>';
+                    },
+                    hint: function(cm, data, completion) {
+                        const from = {line: cursor.line, ch: 0};
+                        const to = {line: cursor.line, ch: line.length};
+                        cm.replaceRange(liquidTemplates["if/else"], from, to);
+                    }
+                });
+            } else if (/^\s*{%\s*for\s*$/.test(lineText) || lineText.includes("{% for")) {
+                // User is working on a for loop
+                const template = liquidTemplates["for"];
+                suggestions.push({
+                    text: template,
+                    displayText: "for item in array",
+                    render: function(element, data, current) {
+                        element.innerHTML = '<span data-type="for">for item in array</span>';
+                    },
+                    hint: function(cm, data, completion) {
+                        const line = cm.getLine(cursor.line);
+                        const replace = line.includes("{% for") ? false : true;
+                        
+                        if (replace) {
+                            const from = {line: cursor.line, ch: 0};
+                            const to = {line: cursor.line, ch: line.length};
+                            cm.replaceRange(template, from, to);
+                        } else {
+                            // Just insert the end part
+                            cm.replaceRange("\n  \n{% endfor %}", cursor);
+                        }
+                        
+                        // Position cursor after "item in "
+                        const itemPos = template.indexOf("item in") + line.indexOf("{% for") + "item in".length + 1;
+                        cm.setCursor({line: cursor.line, ch: itemPos});
+                    }
+                });
+                
+                // Add for/else suggestion
+                suggestions.push({
+                    text: liquidTemplates["for/else"],
+                    displayText: "for/else loop",
+                    render: function(element, data, current) {
+                        element.innerHTML = '<span data-type="for">for/else loop</span>';
+                    },
+                    hint: function(cm, data, completion) {
+                        const from = {line: cursor.line, ch: 0};
+                        const to = {line: cursor.line, ch: line.length};
+                        cm.replaceRange(liquidTemplates["for/else"], from, to);
+                    }
+                });
+            } else {
+                // Filter based on what the user has typed
+                Object.keys(liquidTemplates).forEach(key => {
+                    if (key.includes(currentWord)) {
+                        let type = "assign";
+                        if (key.startsWith("if")) type = "if";
+                        if (key.startsWith("for")) type = "for";
+                        
+                        suggestions.push({
+                            text: liquidTemplates[key],
+                            displayText: key,
+                            render: function(element, data, current) {
+                                element.innerHTML = '<span data-type="' + type + '">' + key + '</span>';
+                            },
+                            hint: function(cm, data, completion) {
+                                const from = {line: cursor.line, ch: 0};
+                                const to = {line: cursor.line, ch: line.length};
+                                cm.replaceRange(liquidTemplates[key], from, to);
+                                
+                                // Position cursor inside the block
+                                const newLine = cursor.line + 1;
+                                const indent = 2; // Indentation level
+                                cm.setCursor({line: newLine, ch: indent});
+                            }
+                        });
+                    }
+                });
+            }
+            
+            return {
+                list: suggestions,
+                from: CodeMirror.Pos(cursor.line, start),
+                to: CodeMirror.Pos(cursor.line, end)
+            };
+        });
+
+        // Trigger autocomplete on typing
+        editor.on("keyup", function(cm, event) {
+            // Keys that should trigger autocomplete
+            const shouldComplete = (
+                (event.key === "{") ||
+                (event.key === "%") ||
+                (event.key === "i" && cm.getLine(cm.getCursor().line).includes("{% ")) || 
+                (event.key === "f" && cm.getLine(cm.getCursor().line).includes("{% "))
+            );
+            
+            if (shouldComplete && !cm.state.completionActive) {
+                CodeMirror.commands.autocomplete(cm, null, {completeSingle: false});
+            }
+        });
+
+        // Add button to manually trigger autocomplete
+        document.getElementById('format-btn').addEventListener('click', function() {
+            CodeMirror.commands.autocomplete(editor, null, {completeSingle: false});
+        });
+
+        // Add this to your existing JavaScript
+        document.querySelector('.log-upload-btn').addEventListener('click', function() {
+            document.getElementById('log-json-upload').click();
+        });
+
+        document.getElementById('log-json-upload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        // Parse the JSON log file
+                        const logData = JSON.parse(e.target.result);
+                        
+                        // Extract variables
+                        const variables = extractLogVariables(logData);
+                        
+                        // Switch to custom system
+                        switchToCustomSystem(variables);
+                        
+                        // Show notification
+                        showNotification(`Extracted ${variables.length} variables from log file`);
+                    } catch (error) {
+                        showNotification(`Error parsing JSON: ${error.message}`);
+                    }
+                };
+                reader.readAsText(file);
+                // Clear the file input
+                e.target.value = '';
+            }
+        });
+
+        // Function to extract variables from a JSON log
+        function extractLogVariables(logData) {
+            const variables = [];
+            const paths = new Set();
+            
+            // Process the JSON to find all accessible paths
+            function processObject(obj, path = '') {
+                if (!obj || typeof obj !== 'object') return;
+                
+                // Handle arrays
+                if (Array.isArray(obj)) {
+                    if (obj.length > 0) {
+                        processObject(obj[0], path ? `${path}[0]` : '[0]');
+                    }
+                    return;
+                }
+                
+                // Process each property in the object
+                for (const key in obj) {
+                    const value = obj[key];
+                    const newPath = path ? `${path}.${key}` : key;
+                    
+                    // Add this path to our list if it's a leaf node
+                    if (typeof value !== 'object' || value === null) {
+                        paths.add({
+                            path: newPath,
+                            type: typeof value,
+                            value: value
+                        });
+                    }
+                    
+                    // Recursively process nested objects
+                    if (value && typeof value === 'object') {
+                        processObject(value, newPath);
+                    }
+                }
+            }
+            
+            // Start processing the log data
+            processObject(logData);
+            
+            // Clean paths and create display names
+            function cleanPath(path) {
+                // Remove common prefixes that shouldn't be part of the variable path
+                if (path.startsWith('_source.')) {
+                    path = path.replace(/^_source\./, '');
+                }
+                if (path.startsWith('logs.log[0].')) {
+                    path = path.replace(/^logs\.log\[0]\./, '');
+                }
+                return path;
+            }
+            
+            // Function to create a clean display name
+            function createDisplayName(path) {
+                // Clean the path first
+                const cleanedPath = cleanPath(path);
+                
+                // Remove leading underscores from displayed parts
+                return cleanedPath.split('.').map(part => {
+                    // Remove array indices and leading underscores from each part
+                    return part.replace(/\[\d+\]/g, '').replace(/^_/, '');
+                }).join('.');
+            }
+            
+            // Convert paths to variable objects
+            paths.forEach(item => {
+                // Clean the path for insertion
+                const cleanedPath = cleanPath(item.path);
+                
+                // Create a clean display name without underscores
+                const displayName = createDisplayName(item.path);
+                
+                variables.push({
+                    name: cleanedPath,
+                    fullPath: item.path,
+                    type: item.type,
+                    value: item.value,
+                    display: displayName
+                });
+            });
+            
+            return variables;
+        }
+
+        // Function to switch to custom system and display variables
+        function switchToCustomSystem(variables) {
+            // Remove active class from all system buttons
+            document.querySelectorAll('.system-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Add active class to the upload button
+            document.querySelector('.log-upload-btn').classList.add('active');
+            
+            // Hide all system options
+            document.querySelectorAll('.system-options').forEach(el => {
+                el.classList.remove('active');
+            });
+            
+            // Clear and update custom options div
+            const customOptions = document.getElementById('custom-log-options');
+            customOptions.innerHTML = '';
+            customOptions.classList.add('active');
+            
+            // If no variables found
+            if (variables.length === 0) {
+                customOptions.innerHTML = '<div class="custom-log-empty">No variables found in the log file</div>';
+                return;
+            }
+            
+            // Create a header for the variables section
+            const sectionHeader = document.createElement('div');
+            sectionHeader.className = 'variable-section-header';
+            sectionHeader.textContent = 'Log Variables';
+            sectionHeader.style.gridColumn = '1 / span 2';
+            sectionHeader.style.fontWeight = 'bold';
+            sectionHeader.style.marginBottom = '10px';
+            sectionHeader.style.paddingBottom = '5px';
+            sectionHeader.style.borderBottom = '1px solid var(--border-color)';
+            customOptions.appendChild(sectionHeader);
+            
+            // Sort variables alphabetically by display name for easier browsing
+            variables.sort((a, b) => a.display.localeCompare(b.display));
+            
+            // Add all variables directly without grouping
+            variables.forEach(variable => {
+                const btn = document.createElement('button');
+                btn.className = 'template-btn extracted-variable';
+                btn.dataset.template = `custom-var-${variable.name}`;
+                btn.dataset.path = variable.name;
+                btn.dataset.type = variable.type;
+                
+                // Set the button text to the variable display name
+                btn.textContent = variable.display;
+                
+                // When clicked, insert at cursor position
+                btn.addEventListener('click', function() {
+                    const insertMode = document.querySelector('input[name="insert-mode"]:checked').value;
+                    
+                    if (insertMode === 'cursor') {
+                        // For cursor position, use simple log_entries[0] format with cleaned path
+                        let insertText = `{{ log_entries[0].${variable.name} }}`;
+                        
+                        // Insert at cursor position
+                        const cursor = editor.getCursor();
+                        editor.replaceRange(insertText, cursor);
+                    } else {
+                        // Auto insert mode implementation
+                        // ...rest of the auto-insert code...
+                    }
+                });
+                
+                // Add button to the custom options container
+                customOptions.appendChild(btn);
+            });
+        }
+
+        // Update the function that determines what text to display on the button
+        function getDisplayText(path, maxLength = 20) {
+            if (path.length <= maxLength) return path;
+            
+            // If the text is too long, show the last part with ellipsis at the beginning
+            return '...' + path.substring(path.length - maxLength);
+        }
+
+        // Add this after editor initialization
+        // Enhance selection highlight behavior
+        editor.on('cursorActivity', function(cm) {
+            const selection = cm.getSelection();
+            
+            // When text is selected (and not just a cursor position)
+            if (selection && selection.length >= 2) {
+                // Force highlight matches to update
+                cm.state.highlightSelectionMatches.overlay = null;
+                cm.operation(function() {
+                    cm.refresh();
+                });
+            }
+        });
+
+        // Also highlight matches when text is programmatically selected
+        // via button clicks or other interactions
+        function selectAndHighlightText(text) {
+            const content = editor.getValue();
+            const cursor = editor.getCursor();
+            const pos = content.indexOf(text, cursor.ch);
+            
+            if (pos !== -1) {
+                // Find the position in the document
+                const doc = editor.getDoc();
+                const startPos = doc.posFromIndex(pos);
+                const endPos = doc.posFromIndex(pos + text.length);
+                
+                // Select the text
+                doc.setSelection(startPos, endPos);
+                
+                // Scroll to the selection
+                editor.scrollIntoView(startPos, 50);
+            }
+        }
     </script>
     {% endraw %}
 </body>

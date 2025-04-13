@@ -2,9 +2,10 @@
     /* Base colors */
     --bg-color: #1a1a1a;
     --text-color: #ffffff;
+    --accent-color: #6c63ff;
     --secondary-bg: #2d2d2d;
     --border-color: #404040;
-    --sidebar-width: 275px;
+    --sidebar-width: 360px;
     --editor-bg: #333333;
     --editor-header-bg: #444444;
     --hover-color: #555555;
@@ -14,9 +15,6 @@
     --purple: #6c63ff;
     --red: #ff4545;
     --green: #50c878;
-
-    /* Default accent color - purple */
-    --accent-color: var(--purple);
 }
 
 /* Theme color classes */
@@ -120,8 +118,8 @@ body {
 }
 
 .system-buttons {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
     gap: 8px;
 }
 
@@ -148,16 +146,18 @@ body {
 
 .system-options {
     display: none;
-    flex-direction: column;
-    gap: 8px;
 }
 
 .system-options.active {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-auto-rows: min-content;
+    gap: 10px;
+    align-items: start;
 }
 
 .template-btn {
-    padding: 8px 12px;
+    padding: 8px 8px;
     background-color: var(--bg-color);
     color: var(--text-color);
     border: 1px solid var(--border-color);
@@ -165,7 +165,10 @@ body {
     cursor: pointer;
     transition: all 0.3s;
     text-align: left;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
 }
 
 .template-btn:hover {
@@ -232,38 +235,45 @@ button:hover {
 }
 
 main {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
+    display: flex;
+    flex-direction: row;
     flex: 1;
-    min-height: 0;
+    overflow: hidden;
     padding: 20px;
+    gap: 20px;
 }
 
-.editor-container,
-.output-container {
-    background-color: var(--secondary-bg);
-    border-radius: 8px;
-    padding: 15px;
-    height: 100%;
+.editor-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--editor-bg);
+    border-radius: 4px;
+    min-height: 0;
     overflow: hidden;
 }
 
 .output-container {
+    flex: 1;
     display: flex;
     flex-direction: column;
+    background-color: var(--editor-bg);
+    border-radius: 4px;
+    overflow: hidden;
 }
 
 #output {
     flex: 1;
-    background-color: var(--bg-color);
     padding: 15px;
-    border-radius: 4px;
-    overflow-y: auto;
-    margin-top: 10px;
-    white-space: pre-wrap;
+    background-color: var(--editor-bg);
+    color: var(--text-color);
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 14px;
     line-height: 1.6;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    min-height: 400px;
+    width: 100%;
 }
 
 #output h1,
@@ -318,10 +328,23 @@ main {
     color: #ccc;
 }
 
+/* Ensure the editor (CodeMirror) is visible and properly sized */
+#editor {
+    height: 100%;
+    min-height: 400px;
+    width: 100%;
+    background-color: var(--editor-bg);
+    border-radius: 0 0 4px 4px;
+}
+
+/* Make sure CodeMirror instance is visible */
 .CodeMirror {
     height: 100% !important;
+    width: 100%;
     font-family: 'Fira Code', monospace;
     font-size: 14px;
+    line-height: 1.5;
+    border-radius: 0 0 4px 4px;
 }
 
 .CodeMirror-focused {
@@ -350,12 +373,14 @@ main {
 
 .company-name input {
     width: 100%;
-    padding: 8px;
+    padding: 8px 12px;
     background-color: var(--bg-color);
     color: var(--text-color);
     border: 1px solid var(--border-color);
     border-radius: 4px;
-    font-size: 0.9rem;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color 0.3s;
 }
 
 .company-name input:focus {
@@ -365,7 +390,7 @@ main {
 
 .outcome-templates {
     margin-bottom: 20px;
-    padding-bottom: 20px;
+    padding-bottom: 10px;
     border-bottom: 1px solid var(--border-color);
 }
 
@@ -464,20 +489,11 @@ main {
     }
 }
 
-.editor-container {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    background-color: var(--editor-bg);
-    border-radius: 4px;
-    overflow: hidden;
-}
-
 .editor-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 15px;
+    padding: 10px;
     background-color: var(--editor-header-bg);
     border-bottom: 1px solid var(--border-color);
 }
@@ -614,9 +630,9 @@ main {
 }
 
 .theme-buttons {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 10px;
-    justify-content: space-between;
     margin-bottom: 10px;
 }
 
@@ -751,4 +767,214 @@ button.loading.with-status>span:not(.status-text) {
 .controls button span {
     font-weight: 500;
     letter-spacing: 0.02em;
+}
+
+/* Adjust other sidebar sections with paddings */
+.sidebar>div {
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+}
+
+/* Add a proper header to the output container to match the editor */
+.output-container h3 {
+    margin: 0;
+    padding: 10px 15px;
+    background-color: var(--editor-header-bg);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 1rem;
+    font-weight: normal;
+}
+
+/* Target CodeMirror's autocomplete popup and any similar menus */
+.CodeMirror-hints,
+.cm-hint-menu,
+.CodeMirror-completion-hint-menu,
+.CodeMirror .autocomplete-menu,
+.CodeMirror-completions {
+    position: absolute !important;
+    z-index: 1000 !important;
+    list-style: none !important;
+    margin: 0 !important;
+    padding: 2px 0 !important;
+    border-radius: 6px !important;
+    border: 1px solid #2a2a2a !important;
+    background: #000000 !important;
+    /* Pure black background */
+    color: #ffffff !important;
+    /* White text */
+    font-family: 'Fira Code', monospace !important;
+    font-size: 15px !important;
+    /* Slightly larger font */
+    line-height: 1.7 !important;
+    height: auto !important;
+    /* Auto height */
+    max-height: none !important;
+    /* No scrolling */
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3) !important;
+    min-width: 200px !important;
+    /* Ensure minimum width */
+    overflow: visible !important;
+    /* No scrolling */
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Individual hint items - target all possible classes */
+.CodeMirror-hint,
+.cm-hint,
+.CodeMirror-completion,
+.CodeMirror-completion-hint,
+.autocomplete-suggestion {
+    margin: 0 !important;
+    padding: 6px 12px !important;
+    /* More padding */
+    white-space: nowrap !important;
+    cursor: pointer !important;
+    transition: background-color 0.2s !important;
+    background: #000000 !important;
+    /* Ensure black background */
+    color: #ffffff !important;
+    /* Ensure white text */
+    font-family: 'Fira Code', monospace !important;
+}
+
+/* Hover effect - target all possible classes */
+.CodeMirror-hint:hover:not(.CodeMirror-hint-active),
+.cm-hint:hover:not(.cm-hint-active),
+.CodeMirror-completion:hover:not(.CodeMirror-completion-selected),
+.CodeMirror-completion-hint:hover:not(.CodeMirror-completion-hint-active),
+.autocomplete-suggestion:hover {
+    background-color: #222222 !important;
+    /* Light grey on hover, still dark */
+}
+
+/* Active hint (selected item) - target all possible classes */
+.CodeMirror-hint-active,
+.cm-hint-active,
+.CodeMirror-completion-selected,
+.CodeMirror-completion-hint-active,
+.autocomplete-suggestion.selected {
+    background-color: #333333 !important;
+    /* Darker grey for active item */
+    color: #ffffff !important;
+    /* Ensure white text */
+}
+
+/* Force autocomplete menus to have black background and white text */
+div[role="presentation"] ul {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+}
+
+div[role="presentation"] li {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+}
+
+div[role="presentation"] li:hover {
+    background-color: #222222 !important;
+}
+
+/* Style for the log upload button */
+.log-upload-btn {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s;
+    text-align: left;
+    width: 100%;
+    margin-top: 8px;
+}
+
+.log-upload-btn i {
+    margin-right: 8px;
+}
+
+.log-upload-btn:hover {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+}
+
+/* Empty state for custom log variables */
+.custom-log-empty {
+    padding: 12px;
+    color: #888;
+    text-align: center;
+    font-style: italic;
+    font-size: 0.9rem;
+    border: 1px dashed var(--border-color);
+    border-radius: 4px;
+    grid-column: span 2;
+}
+
+/* Updated style for extracted variable buttons with text wrapping */
+.extracted-variable {
+    background-color: var(--bg-color);
+    border: 1px solid #3a3a3a;
+    position: relative;
+    text-align: left;
+    white-space: normal;
+    /* Allow text to wrap */
+    word-break: break-word;
+    /* Break words to prevent overflow */
+    height: auto;
+    /* Allow height to adjust to content */
+    min-height: 36px;
+    /* Minimum height for consistency */
+    padding: 8px 25px 8px 10px;
+    /* Top, right, bottom, left padding */
+    font-size: 0.9rem;
+    line-height: 1.3;
+    /* Tighter line height for wrapped text */
+}
+
+/* Adjust the type badge position to stay at the top-right with wrapped text */
+.extracted-variable::before {
+    content: attr(data-type);
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    font-size: 9px;
+    background: #444;
+    padding: 1px 4px;
+    border-radius: 3px;
+    opacity: 0.7;
+}
+
+/* Make sure the variable group headers maintain their left alignment */
+.variable-group-header {
+    text-align: left;
+    /* Keep headers left-aligned */
+    padding: 5px 2px;
+    margin: 12px 0 8px 0;
+}
+
+/* Adjust the grid to better handle variable height buttons */
+.system-options.active {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    grid-auto-rows: min-content;
+    /* Allow rows to size to content */
+    gap: 10px;
+    align-items: start;
+    /* Align items to the top */
+}
+
+/* Adjust any other sidebar elements that might need it */
+.system-btn,
+.template-btn,
+.complex-btn {
+    width: 100%;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Ensure company name field uses full width */
+.company-name input {
+    width: 100%;
 }
