@@ -430,94 +430,94 @@
                 
                 switch(template) {
                     case 'subject-user':
-                        insertText = '* Subject User: `{{ log_entry.SubjectUserName }}`';
+                        insertText = '* Subject User: `{{ log_entries[0].SubjectUserName }}`';
                         break;
                     case 'subject-user-sid':
-                        insertText = '* Subject User SID: `{{ log_entry.SubjectUserSid }}`';
+                        insertText = '* Subject User SID: `{{ log_entries[0].SubjectUserSid }}`';
                         break;
                     case 'target-domain-name':
-                        insertText = '* Target Domain Name: `{{ log_entry.TargetDomainName }}`';
+                        insertText = '* Target Domain Name: `{{ log_entries[0].TargetDomainName }}`';
                         break;
                     case 'target-user':
-                        insertText = '* Target User: `{{ log_entry.TargetUserName }}`';
+                        insertText = '* Target User: `{{ log_entries[0].TargetUserName }}`';
                         break;
                     case 'target-sid':
-                        insertText = '* Target SID: `{{ log_entry.TargetUserSid }}`';
+                        insertText = '* Target SID: `{{ log_entries[0].TargetUserSid }}`';
                         break;
                     case 'windows-hostname':
-                        insertText = '* Hostname: `{{ log_entry.hostname }}`';
+                        insertText = '* Hostname: `{{ log_entries[0].hostname }}`';
                         break;
                     case 'windows-message':
-                        insertText = '* Message: `{{ log_entry.message }}`';
+                        insertText = '* Message: `{{ log_entries[0].message }}`';
                         break;
                     case 'event-type':
-                        insertText = '* Event Type: `{{ log_entry.EventType }}`';
+                        insertText = '* Event Type: `{{ log_entries[0].EventType }}`';
                         break;
                     case 'event-code':
-                        insertText = '* Event Code: `{{ log_entry.event.code }}`';
+                        insertText = '* Event Code: `{{ log_entries[0].event.code }}`';
                         break;
                     case 'target-object':
-                        insertText = '* Target Object: `{{ log_entry.TargetObject }}`';
+                        insertText = '* Target Object: `{{ log_entries[0].TargetObject }}`';
                         break;
                     case 'user':
-                        insertText = '* User: `{{ log_entry.user }}`';
+                        insertText = '* User: `{{ log_entries[0].user }}`';
                         break;
                     case 'command':
-                        insertText = '* Command: `{{ log_entry.command }}`';
+                        insertText = '* Command: `{{ log_entries[0].command }}`';
                         break;
                     case 'process':
-                        insertText = '* Process: `{{ log_entry.process }}`';
+                        insertText = '* Process: `{{ log_entries[0].process }}`';
                         break;
                     case 'user-id':
-                        insertText = '* User ID: `{{ log_entry.UserId }}`';
+                        insertText = '* User ID: `{{ log_entries[0].UserId }}`';
                         break;
                     case 'client-ip':
-                        insertText = '* Client IP: `{{ log_entry.client_ip }}`';
+                        insertText = '* Client IP: `{{ log_entries[0].client_ip }}`';
                         break;
                     case 'host':
-                        insertText = '* Host: `{{ log_entry.host }}`';
+                        insertText = '* Host: `{{ log_entries[0].host }}`';
                         break;
                     case 'user-agent':
-                        insertText = '* User Agent: `{{ log_entry.user_agent }}`';
+                        insertText = '* User Agent: `{{ log_entries[0].user_agent }}`';
                         break;
                     case 'result-status':
-                        insertText = '* Result Status: `{{ log_entry.ResultStatus }}`';
+                        insertText = '* Result Status: `{{ log_entries[0].ResultStatus }}`';
                         break;
                     case 'user-key':
-                        insertText = '* User Key: `{{ log_entry.UserKey }}`';
+                        insertText = '* User Key: `{{ log_entries[0].UserKey }}`';
                         break;
                     case 'operation':
-                        insertText = '* Operation: `{{ log_entry.Operation }}`';
+                        insertText = '* Operation: `{{ log_entries[0].Operation }}`';
                         break;
                     case 'object-id':
-                        insertText = '* Object ID: `{{ log_entry.ObjectID }}`';
+                        insertText = '* Object ID: `{{ log_entries[0].ObjectID }}`';
                         break;
                     case 'resource-type':
-                        insertText = '* Resource Type: `{{ log_entry.resource.type }}`';
+                        insertText = '* Resource Type: `{{ log_entries[0].resource.type }}`';
                         break;
                     case 'resource-id':
-                        insertText = '* Resource ID: `{{ log_entry.resource.id }}`';
+                        insertText = '* Resource ID: `{{ log_entries[0].resource.id }}`';
                         break;
                     case 'actor-ip':
-                        insertText = '* Actor IP: `{{ log_entry.actor.ip }}`';
+                        insertText = '* Actor IP: `{{ log_entries[0].actor.ip }}`';
                         break;
                     case 'actor-type':
-                        insertText = '* Actor Type: `{{ log_entry.actor.type }}`';
+                        insertText = '* Actor Type: `{{ log_entries[0].actor.type }}`';
                         break;
                     case 'actor-id':
-                        insertText = '* Actor ID: `{{ log_entry.actor.id }}`';
+                        insertText = '* Actor ID: `{{ log_entries[0].actor.id }}`';
                         break;
                     case 'actor-email':
-                        insertText = '* Actor Email: `{{ log_entry.actor.email }}`';
+                        insertText = '* Actor Email: `{{ log_entries[0].actor.email }}`';
                         break;
                     case 'action-type':
-                        insertText = '* Action Type: `{{ log_entry.action.type }}`';
+                        insertText = '* Action Type: `{{ log_entries[0].action.type }}`';
                         break;
                     case 'action-result':
-                        insertText = '* Action Result: `{{ log_entry.action.result }}`';
+                        insertText = '* Action Result: `{{ log_entries[0].action.result }}`';
                         break;
                     case 'action-info':
-                        insertText = '* Action Info: `{{ log_entry.action.info }}`';
+                        insertText = '* Action Info: `{{ log_entries[0].action.info }}`';
                         break;
                 }
                 
@@ -1319,20 +1319,73 @@
                 // Set the button text to the variable display name
                 btn.textContent = variable.display;
                 
-                // When clicked, insert at cursor position
+                // When clicked, insert variable properly based on mode
                 btn.addEventListener('click', function() {
                     const insertMode = document.querySelector('input[name="insert-mode"]:checked').value;
                     
                     if (insertMode === 'cursor') {
-                        // For cursor position, use simple log_entries[0] format with cleaned path
+                        // For cursor position, use log_entries[0] format with cleaned path
                         let insertText = `{{ log_entries[0].${variable.name} }}`;
                         
                         // Insert at cursor position
                         const cursor = editor.getCursor();
                         editor.replaceRange(insertText, cursor);
                     } else {
-                        // Auto insert mode implementation
-                        // ...rest of the auto-insert code...
+                        // Auto insert mode - need to handle differently for single vs multiple events
+                        const content = editor.getValue();
+                        
+                        // Find the template sections
+                        const singleEventSection = content.indexOf('{% if log_entries.size == 1 -%}');
+                        const multipleEventsSection = content.indexOf('{% else -%}');
+                        
+                        if (singleEventSection !== -1 && multipleEventsSection !== -1) {
+                            // Locate the insertion points
+                            const singleEventDescEnd = content.indexOf('\n\n', singleEventSection) + 2;
+                            
+                            // For single event section - ALWAYS use log_entries[0]
+                            const singleEventText = `  * ${variable.display}: \`{{ log_entries[0].${variable.name} }}\`\n`;
+                            
+                            // Insert into single event section with proper indentation
+                            editor.replaceRange(singleEventText, 
+                                editor.posFromIndex(singleEventDescEnd),
+                                editor.posFromIndex(singleEventDescEnd));
+                            
+                            // Find the for loop structure in multiple events section
+                            const forLoopStart = content.indexOf('{% for log_entry in log_entries %}', multipleEventsSection);
+                            const forLoopEnd = content.indexOf('{% endfor -%}', forLoopStart);
+                            
+                            // For multiple events section - use log_entry inside the loop
+                            if (forLoopStart !== -1 && forLoopEnd !== -1) {
+                                // Insert point - right after the for loop starts
+                                const insertPos = content.indexOf('\n', forLoopStart) + 1;
+                                
+                                // Insert inside the for loop with proper format
+                                const multipleEventText = `  * ${variable.display}: \`{{ log_entry.${variable.name} }}\`\n`;
+                                
+                                editor.replaceRange(multipleEventText, 
+                                    editor.posFromIndex(insertPos),
+                                    editor.posFromIndex(insertPos));
+                            }
+                        } else {
+                            // If the template structure doesn't exist, create it with correct formats
+                            const templateText = `{% assign log_entries = logs.log -%}
+{% if log_entries.size == 1 -%}
+  COMPANY has detected activity. As part of the investigation, COMPANY observed the following:
+
+  * ${variable.display}: \`{{ log_entries[0].${variable.name} }}\`
+
+{% else -%}
+  COMPANY has detected activity. As part of the investigation, COMPANY observed multiple events:
+
+  {% for log_entry in log_entries %}
+  * ${variable.display}: \`{{ log_entry.${variable.name} }}\`
+  {% endfor -%}
+{% endif -%}`;
+                            
+                            // Insert the complete template at cursor position
+                            const cursor = editor.getCursor();
+                            editor.replaceRange(templateText, cursor);
+                        }
                     }
                 });
                 
