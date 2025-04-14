@@ -19,9 +19,9 @@ An IDE for creating and managing Liquid templates with Sigma rule integration. L
 
 ### Prerequisites
 
-- Python 3.8 or higher
-- pip (Python package manager)
-- Node.js 14.0 or higher (for Liquid template processing)
+- Python 3.8 or higher [Get Python](https://www.python.org/downloads/)
+- pip (Python package manager) [Get Pip (Requires Python First)](https://pip.pypa.io/en/stable/installation/)
+- Node.js 14.0 or higher (for Liquid template processing) [Get Node.js](https://nodejs.org/en/download)
 
 ### Setup
 
