@@ -19,6 +19,8 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/search/searchcursor.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/search/match-highlighter.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/selection/active-line.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/lint/lint.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/lint/lint.min.css">
     {% raw %}
     <script>
         // Define Liquid mode
@@ -238,6 +240,7 @@
                             <button id="format-btn" title="Format"><i class="fas fa-code"></i></button>
                             <button id="clear-btn" title="Clear"><i class="fas fa-trash"></i></button>
                             <button id="run-btn" title="Run Template"><i class="fas fa-play"></i><span>Run</span></button>
+                            <button id="validate-btn" title="Validate Syntax"><i class="fas fa-check-circle"></i></button>
                             <div class="log-count editor-log-count">
                                 <label for="log-count-select">Logs:</label>
                                 <select id="log-count-select" class="log-count-select">
@@ -272,6 +275,7 @@
             matchBrackets: true,
             indentUnit: 4,
             lineWrapping: true,
+            gutters: ["CodeMirror-linenumbers", "lint-gutter"],
             styleActiveLine: true,
             highlightSelectionMatches: {
                 minChars: 2,
@@ -1435,6 +1439,178 @@
                 
                 // Scroll to the selection
                 editor.scrollIntoView(startPos, 50);
+            }
+        }
+
+        // First, let's remove any existing validate buttons
+        document.querySelectorAll('#validate-btn').forEach(btn => btn.remove());
+
+        // Now create a single validate button and add it to the editor controls
+            const validateBtn = document.createElement('button');
+            validateBtn.id = 'validate-btn';
+            validateBtn.title = 'Validate Syntax';
+            validateBtn.innerHTML = '<i class="fas fa-check-circle"></i>';
+            
+        // Add the button to the editor controls
+            const editorControls = document.querySelector('.editor-controls');
+            const runBtn = document.getElementById('run-btn');
+            if (editorControls && runBtn) {
+                editorControls.insertBefore(validateBtn, runBtn);
+        }
+
+        // Add our validation functionality when the button is clicked
+        validateBtn.addEventListener('click', function() {
+            // Get the current template content
+            const content = editor.getValue();
+            
+            // Clear previous markers
+            if (editor.clearGutter) {
+                editor.clearGutter("CodeMirror-lint-markers");
+            }
+            
+            // Remove existing text markers
+            const doc = editor.getDoc();
+            const marks = doc.getAllMarks();
+            marks.forEach(mark => mark.clear());
+            
+            // Array to collect errors
+            const errors = [];
+            
+            // Check for basic syntax issues
+            const openBraces = (content.match(/\{\{/g) || []).length;
+            const closeBraces = (content.match(/\}\}/g) || []).length;
+            if (openBraces !== closeBraces) {
+                errors.push(`Unbalanced curly braces: ${openBraces} opening '{{', ${closeBraces} closing '}}'`);
+            }
+            
+            const openTags = (content.match(/\{%/g) || []).length;
+            const closeTags = (content.match(/%\}/g) || []).length;
+            if (openTags !== closeTags) {
+                errors.push(`Unbalanced liquid tags: ${openTags} opening '{%', ${closeTags} closing '%}'`);
+            }
+            
+            // Check for balanced control flow tags
+            const ifCount = (content.match(/\{%\s*if\b/g) || []).length;
+            const endifCount = (content.match(/\{%\s*endif\b/g) || []).length;
+            if (ifCount !== endifCount) {
+                errors.push(`Unbalanced if tags: ${ifCount} opening 'if', ${endifCount} 'endif'`);
+            }
+            
+            const forCount = (content.match(/\{%\s*for\b/g) || []).length;
+            const endforCount = (content.match(/\{%\s*endfor\b/g) || []).length;
+            if (forCount !== endforCount) {
+                errors.push(`Unbalanced for tags: ${forCount} opening 'for', ${endforCount} 'endfor'`);
+            }
+            
+            // Highlight specific lines with errors
+            const lines = content.split('\n');
+            lines.forEach((line, i) => {
+                const lineNum = i;
+                
+                // Check for unbalanced braces in this line
+                const lineBraceOpen = (line.match(/\{\{/g) || []).length;
+                const lineBraceClose = (line.match(/\}\}/g) || []).length;
+                if (lineBraceOpen !== lineBraceClose) {
+                    // Mark this line
+                    const from = {line: lineNum, ch: 0};
+                    const to = {line: lineNum, ch: line.length};
+                    
+                    doc.markText(from, to, {
+                        className: "syntax-error-underline",
+                        title: "Unbalanced curly braces in this line"
+                    });
+                }
+                
+                // Check for unbalanced tags in this line
+                const lineTagOpen = (line.match(/\{%/g) || []).length;
+                const lineTagClose = (line.match(/%\}/g) || []).length;
+                if (lineTagOpen !== lineTagClose) {
+                    // Mark this line
+                    const from = {line: lineNum, ch: 0};
+                    const to = {line: lineNum, ch: line.length};
+                    
+                    doc.markText(from, to, {
+                        className: "syntax-error-underline",
+                        title: "Unbalanced liquid tags in this line"
+                    });
+                }
+            });
+            
+            // Add style for the error underlines if not already added
+            if (!document.getElementById('syntax-error-style')) {
+                const style = document.createElement('style');
+                style.id = 'syntax-error-style';
+                style.textContent = `
+                    .syntax-error-underline {
+                        text-decoration: wavy underline #dc3545;
+                        text-decoration-skip-ink: none;
+                    }
+                    .notification {
+                        position: fixed;
+                        bottom: 20px;
+                        right: 20px;
+                        padding: 12px 20px;
+                        color: white;
+                        border-radius: 4px;
+                        z-index: 1000;
+                        max-width: 80%;
+                        box-shadow: 0 3px 6px rgba(0,0,0,0.16);
+                    }
+                    .notification.error {
+                        background-color: #dc3545;
+                    }
+                    .notification.success {
+                        background-color: #28a745;
+                    }
+                    .notification-close {
+                        margin-left: 10px;
+                        cursor: pointer;
+                    }
+                `;
+                document.head.appendChild(style);
+            }
+            
+            // Show results
+            if (errors.length === 0) {
+                // Success message
+                showValidationMessage("Template syntax looks valid!", "success");
+            } else {
+                // Error message with details
+                showValidationMessage(
+                    `Syntax validation failed:\n${errors.join('\n')}`,
+                    "error"
+                );
+            }
+        });
+
+        // Function to show validation messages
+        function showValidationMessage(message, type) {
+            // Remove any existing notifications
+            document.querySelectorAll('.notification').forEach(el => el.remove());
+            
+            // Create new notification
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            
+            // Add close button
+            const closeBtn = document.createElement('span');
+            closeBtn.className = 'notification-close';
+            closeBtn.innerHTML = '&times;';
+            closeBtn.onclick = function() {
+                document.body.removeChild(notification);
+            };
+            notification.appendChild(closeBtn);
+            
+            document.body.appendChild(notification);
+            
+            // Auto-dismiss success messages
+            if (type === 'success') {
+                setTimeout(() => {
+                    if (document.body.contains(notification)) {
+                        document.body.removeChild(notification);
+                    }
+                }, 3000);
             }
         }
     </script>

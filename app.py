@@ -10,19 +10,18 @@ import tempfile
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['TEMPLATES_FOLDER'] = 'Liquid Templates'
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB file size limit
 
-# Ensure upload and templates folders exist
+# Create required directories
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 os.makedirs(app.config['TEMPLATES_FOLDER'], exist_ok=True)
 
 def extract_variables_from_rule(rule):
-    # Split the rule by AND to get individual conditions
+    """Extract variable names from a Sigma rule condition."""
     conditions = [cond.strip() for cond in rule.split('AND')]
     variables = []
     
     for condition in conditions:
-        # Extract the variable name (everything before the colon)
         match = re.match(r'([^:]+):', condition)
         if match:
             variable = match.group(1).strip()
@@ -31,6 +30,7 @@ def extract_variables_from_rule(rule):
     return variables
 
 def generate_liquid_template(num_entries, company_name):
+    """Generate a template based on number of log entries."""
     if num_entries == 1:
         return """{% assign log_entries = logs.log %}
 # {{ log_entries[0].TargetUserName }} - {{ log_entries[0].TargetDomainName }}
@@ -105,33 +105,28 @@ def generate_liquid_template(num_entries, company_name):
 """.format(company_name, num_entries)
 
 def process_liquid_template(template, data):
-    """Process a Liquid template using Node.js"""
+    """Process a Liquid template using Node.js."""
     temp_template_path = None
     temp_data_path = None
     temp_output_path = None
     
     try:
-        # Create a temporary file for the template
+        # Create temporary files
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.liquid') as temp_template:
             temp_template.write(template)
             temp_template_path = temp_template.name
 
-        # Create a temporary file for the data
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as temp_data:
-            # Get the number of logs to simulate from the UI
-            # Default to 1 if not present in the request
-            log_count = 1
-            if 'log_count' in data:
-                log_count = int(data['log_count'])
+            log_count = int(data.get('log_count', 1))
             
-            # Create sample data with the appropriate number of log entries
+            # Prepare sample data
             sample_data = {
                 'logs': {
                     'log': []
                 }
             }
             
-            # Generate multiple sample log entries based on log_count
+            # Generate sample log entries
             for i in range(log_count):
                 sample_log = {
                     'EventType': f'Sample Event {i+1}',
@@ -153,11 +148,10 @@ def process_liquid_template(template, data):
             json.dump(sample_data, temp_data)
             temp_data_path = temp_data.name
 
-        # Create a temporary file for the output
         with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.md') as temp_output:
             temp_output_path = temp_output.name
 
-        # Run the Node.js processor
+        # Process template with Node.js
         process = subprocess.Popen(
             ['node', 'liquid_processor.js', temp_template_path, temp_data_path, temp_output_path],
             stdout=subprocess.PIPE,
@@ -167,10 +161,8 @@ def process_liquid_template(template, data):
 
         if process.returncode != 0:
             stderr_text = stderr.decode() if stderr else "Unknown error"
-            # Log the error for debugging
             print(f"Node.js processor error: {stderr_text}")
             
-            # Check if the error file has content
             if os.path.exists(temp_output_path) and os.path.getsize(temp_output_path) > 0:
                 with open(temp_output_path, 'r') as f:
                     error_message = f.read()
@@ -178,7 +170,7 @@ def process_liquid_template(template, data):
             else:
                 raise Exception(f"Node.js processor failed: {stderr_text}")
 
-        # Read the processed output
+        # Read result
         with open(temp_output_path, 'r') as f:
             result = f.read()
 
@@ -188,7 +180,7 @@ def process_liquid_template(template, data):
         print(f"Template processing error: {str(e)}")
         raise e
     finally:
-        # Clean up temporary files if they exist
+        # Cleanup temporary files
         for path in [temp_template_path, temp_data_path, temp_output_path]:
             try:
                 if path and os.path.exists(path):
@@ -197,53 +189,48 @@ def process_liquid_template(template, data):
                 print(f"Error cleaning up temp file {path}: {str(cleanup_error)}")
 
 def sigma_to_liquid_template(sigma_data, company_name="Defense.com"):
-    """
-    Convert a Sigma rule JSON to a Liquid template format
-    """
-    # Ensure we have a list of rules
+    """Convert Sigma rule JSON to Liquid template format."""
+    # Normalize input
     if not isinstance(sigma_data, list):
         sigma_data = [sigma_data]
     
-    # Extract the title, prioritizing runbook.title if it exists
+    # Get title from appropriate location
     title = None
     if 'runbook' in sigma_data[0] and 'title' in sigma_data[0]['runbook']:
         title = sigma_data[0]['runbook']['title']
     else:
         title = sigma_data[0].get('title', 'Untitled')
     
-    # Create the template manually with proper syntax
+    # Create template structure
     template = '{% assign log_entries = logs.log -%}\n'
     template += '{% if log_entries.size == 1 -%}\n'
     template += f'  {company_name} has detected {title}. As part of the investigation, {company_name} observed the following activity:\n\n'
     
-    # Extract detection fields from the first rule
+    # Extract fields from detection section
     detection_fields = []
     if sigma_data[0].get('detection') and isinstance(sigma_data[0]['detection'], dict):
-        # Get key fields from selection sections
         for key, value in sigma_data[0]['detection'].items():
             if key not in ['condition'] and isinstance(value, dict):
                 for field in value.keys():
                     if field not in detection_fields and not field.startswith('_'):
                         detection_fields.append(field)
     
-    # If no fields were found, use some defaults
+    # Use default fields if none found
     if not detection_fields:
         detection_fields = ["EventType", "TargetObject"]
     
-    # Add the field outputs for single event - without bold formatting
+    # Single event format
     for field in detection_fields:
         template += f'  * {field}: `{{{{ log_entries[0].{field} }}}}`\n'
     
-    # Add the multiple events section
+    # Multiple events format
     template += '\n{% else -%}\n'
     template += f'  {company_name} has detected {title}. As part of the investigation, {company_name} observed multiple events:\n\n'
     template += '  {% for log_entry in log_entries %}\n'
     
-    # Add the field outputs for multiple events - without bold formatting
     for field in detection_fields:
         template += f'  * {field}: `{{{{ log_entry.{field} }}}}`\n'
     
-    # Close the template
     template += '  {% endfor -%}\n'
     template += '{% endif -%}\n'
     
